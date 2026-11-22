@@ -16,6 +16,7 @@ const MODULE_INFO = {
   receber: { title: 'Contas a Receber', subtitle: 'Serviços comerciais, parcelas e controle de Nota Fiscal' },
   pagar: { title: 'Contas a Pagar', subtitle: 'Despesas, rateio, transcrição por foto de NF e comprovantes no R2' },
   rh_colaboradores: { title: 'Colaboradores & NRs', subtitle: 'Ficha cadastral, salários, documentos e NRs pré-definidas' },
+  pastas_funcionarios: { title: 'Pasta dos Funcionários', subtitle: 'Prontuário individual, documentos obrigatórios, ASOs, NRs e certificados por colaborador' },
   rh_folha: { title: 'Vales & Folha de Pagamento', subtitle: 'Adiantamentos, comissões e fechamento mensal' },
   rh_comportamento: { title: 'Comportamento & Produtividade', subtitle: 'Relatórios disciplinares e desempenho da equipe' },
   certificados: { title: 'Gerador de Certificados', subtitle: 'Emissão oficial de certificados de NRs e treinamentos' },
@@ -153,6 +154,7 @@ function switchModule(moduleKey) {
   if (moduleKey === 'dashboard') loadDashboard();
   if (moduleKey === 'fluxo' || moduleKey === 'receber' || moduleKey === 'pagar') loadFinanceiro();
   if (moduleKey.startsWith('rh_') || moduleKey === 'certificados') loadRH();
+  if (moduleKey === 'pastas_funcionarios') loadPastasFuncionarios();
   if (moduleKey === 'sst') loadSST();
   if (moduleKey === 'acervo') loadAcervo();
   if (moduleKey === 'admin_acessos') {
@@ -911,6 +913,249 @@ async function digitalizarDocProntuario(event, colabId) {
   } catch (err) {
     alert(err.message);
   }
+}
+
+/* ================= PASTA INDIVIDUAL DOS FUNCIONÁRIOS ================= */
+let PASTA_ATUAL_COLAB_ID = null;
+
+async function loadPastasFuncionarios() {
+  try {
+    const mes = new Date().toISOString().slice(0, 7);
+    const [sstData, rhData] = await Promise.all([
+      apiFetch('/api/sst?action=overview'),
+      apiFetch(`/api/rh?mes=${mes}`)
+    ]);
+    STATE.sst = sstData;
+    STATE.rh = rhData;
+
+    renderPastasGrid();
+    if (PASTA_ATUAL_COLAB_ID) {
+      abrirPastaFuncionario(PASTA_ATUAL_COLAB_ID);
+    }
+  } catch (err) {
+    alert('Erro ao carregar pastas dos funcionários: ' + err.message);
+  }
+}
+
+function renderPastasGrid() {
+  const container = document.getElementById('pastas-grid-container');
+  if (!container || !STATE.sst || !STATE.rh) return;
+
+  const busca = (document.getElementById('pastas-busca')?.value || '').toLowerCase().trim();
+  const setorFiltro = (document.getElementById('pastas-filtro-setor')?.value || '').toLowerCase();
+
+  const tiposDoc = STATE.sst.tipos_doc_rh || [];
+  const docsRh = STATE.rh.documentos || [];
+  const asos = STATE.sst.asos || [];
+  const certs = STATE.rh.certificados || [];
+  const acervo = STATE.sst.acervo || [];
+
+  const colabs = STATE.sst.colaboradores.filter(c => {
+    if (setorFiltro && (c.setor || 'geral').toLowerCase() !== setorFiltro) return false;
+    if (!busca) return true;
+    return `${c.nome} ${c.cargo || ''} ${c.setor || ''} ${c.cpf || ''}`.toLowerCase().includes(busca);
+  });
+
+  if (colabs.length === 0) {
+    container.innerHTML = `<p style="color:var(--text-muted); padding:16px;">Nenhum funcionário encontrado.</p>`;
+    return;
+  }
+
+  container.innerHTML = colabs.map(c => {
+    const docsC = docsRh.filter(d => d.colaborador_id === c.id);
+    const asosC = asos.filter(a => a.colaborador_id === c.id);
+    const certsC = certs.filter(ct => ct.colaborador_id === c.id);
+    const acervoC = acervo.filter(ac => ac.colaborador_id === c.id);
+
+    let obrigFeitos = 0;
+    tiposDoc.forEach(td => {
+      const chave = td.nome.toLowerCase().slice(0, 8);
+      const temRh = docsC.some(d => d.titulo.toLowerCase().includes(chave));
+      const temAcervo = acervoC.some(a => `${a.titulo} ${a.texto_ocr || ''}`.toLowerCase().includes(chave));
+      if (temRh || temAcervo) obrigFeitos++;
+    });
+
+    const totalObrig = tiposDoc.length || 1;
+    const pct = tiposDoc.length ? Math.round((obrigFeitos / totalObrig) * 100) : 100;
+    const totalArquivos = docsC.length + asosC.length + certsC.length + acervoC.length;
+
+    return `
+      <div class="pasta-card" onclick="abrirPastaFuncionario('${c.id}')">
+        <div class="pasta-card-top">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div class="pasta-icon">📁</div>
+            <div>
+              <strong style="display:block; font-size:15px;">${c.nome}</strong>
+              <small style="color:var(--text-muted);">${c.cargo || 'Colaborador'} · ${(c.setor || 'geral').toUpperCase()}</small>
+            </div>
+          </div>
+          <span class="status-pill ${c.status === 'ativo' ? 'pill-green' : 'pill-amber'}">${c.status}</span>
+        </div>
+
+        <div class="pasta-progress-bar">
+          <div class="pasta-progress-fill" style="width:${pct}%;"></div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted);">
+          <span>Obrigatórios: <strong>${obrigFeitos}/${tiposDoc.length}</strong> (${pct}%)</span>
+          <span><strong>${totalArquivos}</strong> registro(s)</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function abrirPastaFuncionario(colabId) {
+  PASTA_ATUAL_COLAB_ID = colabId;
+  const colab = STATE.sst?.colaboradores.find(c => c.id === colabId);
+  if (!colab) return;
+
+  document.getElementById('pastas-lista-view').classList.add('hidden');
+  document.getElementById('pasta-detalhe-view').classList.remove('hidden');
+
+  document.getElementById('pasta-detalhe-nome').textContent = `📁 Pasta de ${colab.nome}`;
+  document.getElementById('pasta-detalhe-info').textContent =
+    `${colab.cargo || 'Sem cargo'} · Setor: ${(colab.setor || 'geral').toUpperCase()}${colab.cpf ? ' · CPF: ' + colab.cpf : ''}`;
+
+  const tiposDoc = STATE.sst.tipos_doc_rh || [];
+  const docsC = (STATE.rh?.documentos || []).filter(d => d.colaborador_id === colabId);
+  const asosC = (STATE.sst?.asos || []).filter(a => a.colaborador_id === colabId);
+  const certsC = (STATE.rh?.certificados || []).filter(ct => ct.colaborador_id === colabId);
+  const acervoC = (STATE.sst?.acervo || []).filter(ac => ac.colaborador_id === colabId);
+
+  const checkContainer = document.getElementById('pasta-checklist-container');
+  checkContainer.innerHTML = tiposDoc.length === 0
+    ? '<small style="color:var(--text-muted);">Nenhum documento obrigatório configurado pelo ADM.</small>'
+    : tiposDoc.map(td => {
+      const chave = td.nome.toLowerCase().slice(0, 8);
+      const matchRh = docsC.find(d => d.titulo.toLowerCase().includes(chave));
+      const matchAcervo = acervoC.find(a => `${a.titulo} ${a.texto_ocr || ''}`.toLowerCase().includes(chave));
+      const arquivoUrl = matchRh?.arquivo_url || matchAcervo?.arquivo_url || null;
+      const ok = Boolean(matchRh || matchAcervo);
+
+      return `
+        <div class="pasta-doc-slot ${ok ? 'ok' : ''}">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+            <strong style="font-size:13px;">${ok ? '✓' : '○'} ${td.nome}</strong>
+            <span class="status-pill ${ok ? 'pill-green' : 'pill-amber'}">${ok ? 'Anexado' : 'Pendente'}</span>
+          </div>
+          <div>
+            ${arquivoUrl
+              ? `<a href="${arquivoUrl}" target="_blank" class="btn-pill btn-outline btn-sm">Abrir Arquivo</a>`
+              : `<label class="btn-pill btn-primary btn-sm" style="cursor:pointer;">
+                   Anexar ${td.nome}
+                   <input type="file" accept="image/*,.pdf" style="display:none;" onchange="uploadItemObrigatorioPasta(event, '${colabId}', '${td.nome.replace(/'/g, "\\'")}')">
+                 </label>`}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  const linhas = [];
+
+  asosC.forEach(a => {
+    linhas.push(`
+      <tr>
+        <td><span class="status-pill pill-blue">ASO (SST)</span></td>
+        <td>Exame ${a.tipo_exame.replace('_', ' ')} · <strong>${a.resultado.replace('_', ' ')}</strong></td>
+        <td>${formatDateBR(a.data_exame)}</td>
+        <td>${formatDateBR(a.data_validade)}</td>
+        <td><span class="status-pill ${a.status_validade === 'vencido' ? 'pill-red' : 'pill-green'}">${a.status_validade}</span></td>
+        <td>${a.arquivo_url ? `<a href="${a.arquivo_url}" target="_blank" class="btn-pill btn-outline btn-sm">Abrir</a>` : '-'}</td>
+      </tr>
+    `);
+  });
+
+  docsC.forEach(d => {
+    linhas.push(`
+      <tr>
+        <td><span class="status-pill pill-teal">${d.codigo_nr || 'Documento RH'}</span></td>
+        <td><strong>${d.titulo}</strong></td>
+        <td>${formatDateBR(d.data_emissao)}</td>
+        <td>${formatDateBR(d.data_validade)}</td>
+        <td><span class="status-pill ${d.status_validade === 'vencido' ? 'pill-red' : 'pill-green'}">${d.status_validade}</span></td>
+        <td>${d.arquivo_url ? `<a href="${d.arquivo_url}" target="_blank" class="btn-pill btn-outline btn-sm">Abrir</a>` : '-'}</td>
+      </tr>
+    `);
+  });
+
+  certsC.forEach(cert => {
+    linhas.push(`
+      <tr>
+        <td><span class="status-pill pill-amber">Certificado</span></td>
+        <td><strong>${cert.titulo_curso}</strong> (${cert.carga_horaria}h) · Cód. ${cert.codigo_validacao}</td>
+        <td>${formatDateBR(cert.data_conclusao)}</td>
+        <td>${formatDateBR(cert.data_validade)}</td>
+        <td><span class="status-pill pill-green">Emitido</span></td>
+        <td><button type="button" class="btn-pill btn-gold btn-sm" onclick="abrirCertificado('${cert.id}')">Visualizar / PDF</button></td>
+      </tr>
+    `);
+  });
+
+  acervoC.forEach(ac => {
+    linhas.push(`
+      <tr>
+        <td><span class="status-pill pill-teal">Acervo Digital</span></td>
+        <td><strong>${ac.titulo}</strong> <small style="color:var(--text-muted);">(${ac.categoria})</small></td>
+        <td>${formatDateBR(ac.data_documento || ac.created_at)}</td>
+        <td>-</td>
+        <td><span class="status-pill pill-green">Digitalizado</span></td>
+        <td><a href="${ac.arquivo_url}" target="_blank" class="btn-pill btn-outline btn-sm">Abrir</a></td>
+      </tr>
+    `);
+  });
+
+  document.getElementById('pasta-arquivos-body').innerHTML = linhas.length === 0
+    ? `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum arquivo ou registro dentro desta pasta ainda.</td></tr>`
+    : linhas.join('');
+}
+
+function fecharPastaFuncionario() {
+  PASTA_ATUAL_COLAB_ID = null;
+  document.getElementById('pasta-detalhe-view').classList.add('hidden');
+  document.getElementById('pastas-lista-view').classList.remove('hidden');
+  renderPastasGrid();
+}
+
+async function uploadItemObrigatorioPasta(event, colabId, tituloDoc) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const colabObj = STATE.sst?.colaboradores.find(c => c.id === colabId);
+  const hoje = new Date().toISOString().slice(0, 10);
+
+  try {
+    const url = await uploadArquivoR2(file, 'rh-documentos');
+    await Promise.all([
+      syncParaDocumentosRH({
+        colaboradorId: colabId,
+        tipoDocumento: 'documento',
+        titulo: tituloDoc,
+        dataEmissao: hoje,
+        arquivoUrl: url
+      }),
+      syncParaAcervoDigital({
+        titulo: `${tituloDoc}${colabObj ? ' - ' + colabObj.nome : ''}`,
+        categoria: 'RH / Colaboradores',
+        dataDocumento: hoje,
+        colaboradorId: colabId,
+        nomeArquivo: file.name,
+        arquivoUrl: url
+      })
+    ]);
+    await loadPastasFuncionarios();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function uploadNaPastaAtual(event) {
+  const file = event.target.files[0];
+  if (!file || !PASTA_ATUAL_COLAB_ID) return;
+  const titulo = prompt('Nome do documento que está sendo anexado nesta pasta:', file.name.replace(/\.[^.]+$/, ''));
+  if (!titulo) return;
+
+  await uploadItemObrigatorioPasta(event, PASTA_ATUAL_COLAB_ID, titulo.trim());
+  event.target.value = '';
 }
 
 /* ================= ACERVO DIGITAL (DIGITALIZAÇÃO DE PAPEL COM OCR EM LOTE) ================= */
@@ -1702,7 +1947,6 @@ document.addEventListener('DOMContentLoaded', () => {
         })
       });
 
-      // Se o documento lançado no RH for NR-07 ou ASO, dá baixa automática no painel SST
       if (nrObj?.codigo?.toUpperCase() === 'NR-07' || /\baso\b/i.test(titulo)) {
         await apiFetch('/api/sst', {
           method: 'POST',
@@ -1719,7 +1963,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }).catch(() => null);
       }
 
-      // Se houver anexo, indexa automaticamente no Acervo Digital
       if (fileUrl) {
         await syncParaAcervoDigital({
           titulo: `${titulo}${colabObj ? ' - ' + colabObj.nome : ''}`,
@@ -2034,7 +2277,6 @@ document.addEventListener('DOMContentLoaded', () => {
           })
         });
 
-        // Se o documento digitalizado foi vinculado a um colaborador, atualiza também o RH e o Prontuário SST
         if (colabId) {
           await syncParaDocumentosRH({
             colaboradorId: colabId,
