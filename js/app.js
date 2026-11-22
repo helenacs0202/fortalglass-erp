@@ -1624,4 +1624,398 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({
           action: 'criar_documento',
           colaborador_id: document.getElementById('doc-colaborador').value,
-          nr_id: document.getElement
+          nr_id: document.getElementById('doc-nr-select').value || null,
+          tipo_documento: document.getElementById('doc-nr-select').value ? 'nr' : 'documento',
+          titulo: document.getElementById('doc-titulo').value,
+          data_emissao: document.getElementById('doc-emissao').value || null,
+          data_validade: document.getElementById('doc-validade').value || null,
+          arquivo_url: fileUrl
+        })
+      });
+      e.target.reset();
+      loadRH();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('form-vale').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/rh', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'criar_vale',
+          colaborador_id: document.getElementById('vale-colaborador').value,
+          tipo: document.getElementById('vale-tipo').value,
+          descricao: document.getElementById('vale-descricao').value,
+          valor: document.getElementById('vale-valor').value,
+          mes_referencia: document.getElementById('rh-mes-filtro').value
+        })
+      });
+      e.target.reset();
+      loadRH();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('form-ocorrencia').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/rh', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'criar_ocorrencia',
+          colaborador_id: document.getElementById('ocorr-colaborador').value,
+          tipo: document.getElementById('ocorr-tipo').value,
+          classificacao: document.getElementById('ocorr-classificacao').value,
+          data_ocorrencia: document.getElementById('ocorr-data').value,
+          descricao: document.getElementById('ocorr-descricao').value
+        })
+      });
+      e.target.reset();
+      loadRH();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('form-produtividade').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/rh', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'criar_produtividade',
+          colaborador_id: document.getElementById('prod-colaborador').value,
+          etapa_producao: document.getElementById('prod-etapa').value,
+          quantidade_pecas: document.getElementById('prod-pecas').value,
+          metragem_m2: document.getElementById('prod-m2').value,
+          horas_trabalhadas: document.getElementById('prod-horas').value,
+          retrabalho_qtd: document.getElementById('prod-retrabalho').value,
+          nota_qualidade: document.getElementById('prod-nota').value
+        })
+      });
+      e.target.reset();
+      loadRH();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('form-certificado').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      const res = await apiFetch('/api/rh', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'gerar_certificado',
+          colaborador_id: document.getElementById('cert-colaborador').value,
+          nr_id: document.getElementById('cert-nr-select').value || null,
+          titulo_curso: document.getElementById('cert-titulo').value,
+          carga_horaria: document.getElementById('cert-carga').value,
+          data_conclusao: document.getElementById('cert-data').value,
+          validade_meses: document.getElementById('cert-validade-meses').value,
+          instrutor_nome: document.getElementById('cert-instrutor').value,
+          instrutor_registro: document.getElementById('cert-registro').value,
+          conteudo_programatico: document.getElementById('cert-conteudo').value
+        })
+      });
+      e.target.reset();
+      await loadRH();
+      if (res.certificado) {
+        preencherModalCertificado(res.certificado);
+        document.getElementById('modal-certificado').classList.remove('hidden');
+      }
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  // --- LISTENERS DE SST (ASOs + TREINAMENTOS EM TURMA) ---
+  document.getElementById('aso-data-exame')?.addEventListener('change', e => {
+    const tipo = document.getElementById('aso-tipo')?.value;
+    if (e.target.value && tipo !== 'demissional') {
+      const dt = new Date(e.target.value + 'T12:00:00');
+      dt.setFullYear(dt.getFullYear() + 1);
+      document.getElementById('aso-data-validade').value = dt.toISOString().slice(0, 10);
+    }
+  });
+
+  document.getElementById('form-sst-aso')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      let fileUrl = null;
+      const f = document.getElementById('aso-file').files[0];
+      if (f) fileUrl = await uploadArquivoR2(f, 'sst-asos');
+
+      await apiFetch('/api/sst', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'salvar_aso',
+          colaborador_id: document.getElementById('aso-colaborador').value,
+          tipo_exame: document.getElementById('aso-tipo').value,
+          resultado: document.getElementById('aso-resultado').value,
+          data_exame: document.getElementById('aso-data-exame').value,
+          data_validade: document.getElementById('aso-data-validade').value || null,
+          medico_clinica: document.getElementById('aso-clinica').value,
+          arquivo_url: fileUrl
+        })
+      });
+      e.target.reset();
+      loadSST();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('turma-nr-select')?.addEventListener('change', e => {
+    const opt = e.target.selectedOptions[0];
+    if (opt?.dataset.val) {
+      document.getElementById('turma-validade-meses').value = opt.dataset.val;
+    }
+  });
+
+  document.getElementById('form-sst-turma')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const selecionados = [...document.querySelectorAll('input[name="turma-colab-item"]:checked')].map(c => c.value);
+    if (selecionados.length === 0) {
+      return alert('Selecione pelo menos um colaborador participante.');
+    }
+
+    const nrId = document.getElementById('turma-nr-select').value;
+    const nrObj = STATE.sst?.catalogo_nrs.find(n => n.id === nrId);
+    const dataEmissao = document.getElementById('turma-data').value;
+    const meses = Number(document.getElementById('turma-validade-meses').value || 12);
+    const dtVal = new Date(dataEmissao + 'T12:00:00');
+    dtVal.setMonth(dtVal.getMonth() + meses);
+    const dataValidade = dtVal.toISOString().slice(0, 10);
+
+    try {
+      let fileUrl = null;
+      const f = document.getElementById('turma-file').files[0];
+      if (f) fileUrl = await uploadArquivoR2(f, 'sst-treinamentos');
+
+      for (const colabId of selecionados) {
+        await apiFetch('/api/rh', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'criar_documento',
+            colaborador_id: colabId,
+            nr_id: nrId,
+            tipo_documento: 'nr',
+            titulo: nrObj ? `${nrObj.codigo} - ${nrObj.nome}` : 'Treinamento SST',
+            data_emissao: dataEmissao,
+            data_validade: dataValidade,
+            arquivo_url: fileUrl
+          })
+        });
+      }
+
+      alert(`Treinamento lançado com sucesso para ${selecionados.length} colaborador(es)!`);
+      e.target.reset();
+      loadSST();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  // --- LISTENER DO ACERVO DIGITAL (DIGITALIZAÇÃO EM LOTE COM OCR) ---
+  document.getElementById('form-acervo-lote')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const files = [...document.getElementById('acervo-files').files];
+    if (files.length === 0) return;
+
+    const btn = document.getElementById('btn-acervo-upload');
+    const status = document.getElementById('acervo-ocr-status');
+    const cat = document.getElementById('acervo-categoria').value;
+    const prefixo = document.getElementById('acervo-titulo').value.trim();
+    const pastaFisica = document.getElementById('acervo-pasta-fisica').value.trim();
+    const dataDoc = document.getElementById('acervo-data').value || null;
+    const colabId = document.getElementById('acervo-colaborador').value || null;
+
+    btn.disabled = true;
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        status.textContent = `Digitalizando arquivo ${i + 1} de ${files.length}: ${file.name}...`;
+
+        const [fileUrl, parsed] = await Promise.all([
+          uploadArquivoR2(file, 'acervo-digital'),
+          extrairTextoArquivo(file, msg => {
+            status.textContent = `[${i + 1}/${files.length}] ${msg}`;
+          }).catch(() => ({ texto: '' }))
+        ]);
+
+        const tituloFinal = prefixo
+          ? (files.length > 1 ? `${prefixo} (${i + 1})` : prefixo)
+          : file.name.replace(/\.[^.]+$/, '');
+
+        await apiFetch('/api/sst', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'salvar_acervo_item',
+            titulo: tituloFinal,
+            categoria: cat,
+            pasta_fisica: pastaFisica || null,
+            data_documento: dataDoc,
+            colaborador_id: colabId,
+            nome_arquivo: file.name,
+            arquivo_url: fileUrl,
+            texto_ocr: parsed.texto || ''
+          })
+        });
+      }
+
+      status.textContent = `${files.length} documento(s) digitalizado(s) e indexado(s) com sucesso!`;
+      e.target.reset();
+      loadAcervo();
+    } catch (err) {
+      status.textContent = 'Erro: ' + err.message;
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // --- LISTENERS DE AUTONOMIA ADMINISTRATIVA (ADM / GESTORES) ---
+  document.getElementById('form-adm-nr')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/sst', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'salvar_nr',
+          id: document.getElementById('adm-nr-id').value || null,
+          codigo: document.getElementById('adm-nr-codigo').value.trim(),
+          nome: document.getElementById('adm-nr-nome').value.trim(),
+          validade_meses: document.getElementById('adm-nr-validade').value,
+          carga_horaria_padrao: document.getElementById('adm-nr-carga').value,
+          conteudo_programatico: document.getElementById('adm-nr-conteudo').value.trim()
+        })
+      });
+      resetFormAdmNr();
+      loadSST();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('form-adm-matriz')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/sst', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'salvar_matriz_nr',
+          setor: document.getElementById('adm-matriz-setor').value,
+          nr_id: document.getElementById('adm-matriz-nr').value
+        })
+      });
+      loadSST();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('form-adm-tipodoc')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/sst', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'salvar_tipo_doc_rh',
+          nome: document.getElementById('adm-tipodoc-nome').value.trim(),
+          obrigatorio: document.getElementById('adm-tipodoc-obrig').checked
+        })
+      });
+      e.target.reset();
+      loadSST();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('form-adm-cat-acervo')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/sst', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'salvar_categoria_acervo',
+          nome: document.getElementById('adm-cat-acervo-nome').value.trim()
+        })
+      });
+      e.target.reset();
+      loadSST();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('form-usuario-adm').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/admin', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'salvar_usuario',
+          id: document.getElementById('adm-user-id').value || null,
+          nome: document.getElementById('adm-user-nome').value,
+          email: document.getElementById('adm-user-login').value,
+          senha: document.getElementById('adm-user-senha').value,
+          setor: document.getElementById('adm-user-setor').value,
+          permissoes: {
+            financeiro: document.getElementById('perm-financeiro').checked,
+            administrativo: document.getElementById('perm-administrativo').checked,
+            rh: document.getElementById('perm-rh').checked,
+            vendas: document.getElementById('perm-vendas').checked,
+            producao: document.getElementById('perm-producao').checked,
+            admin: document.getElementById('perm-admin').checked
+          }
+        })
+      });
+      resetFormUsuarioAdm();
+      loadAdmin();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('form-saldo-inicial').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/financeiro', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'salvar_saldo_inicial',
+          saldo_inicial: document.getElementById('cfg-saldo-inicial').value
+        })
+      });
+      alert('Saldo inicial atualizado com sucesso!');
+      loadDashboard();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  document.getElementById('form-categoria').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/admin', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'criar_categoria',
+          nome: document.getElementById('cat-nome').value,
+          cor_hex: document.getElementById('cat-cor').value
+        })
+      });
+      e.target.reset();
+      alert('Categoria criada!');
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+
+  checkSession();
+});
