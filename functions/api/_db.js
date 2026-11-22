@@ -17,6 +17,15 @@ export function json(data, status = 200) {
   });
 }
 
+export function hasPerm(user, perm) {
+  if (!user) return false;
+  if (user.perfil === 'admin') return true;
+  if (user.permissoes && (user.permissoes.admin || user.permissoes[perm])) {
+    return true;
+  }
+  return false;
+}
+
 async function getCryptoKey(env) {
   const secret = env.JWT_SECRET || env.DATABASE_URL || 'fortalglass-fallback-key';
   const enc = new TextEncoder();
@@ -55,6 +64,8 @@ export async function signToken(user, env) {
     nome: user.nome,
     email: user.email,
     perfil: user.perfil,
+    setor: user.setor || 'geral',
+    permissoes: user.permissoes || {},
     exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7
   };
   const enc = new TextEncoder();
