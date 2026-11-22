@@ -391,11 +391,16 @@ async function loadRH() {
       filtroOcorr.innerHTML = `<option value="">Todos os Colaboradores</option>` + colabOptions;
     }
 
-    const nrOptions = data.catalogo_nrs
+    const nrOptionsTodos = data.catalogo_nrs
       .map(n => `<option value="${n.id}">${n.codigo} - ${n.nome} (${n.validade_meses}m)</option>`)
       .join('');
-    document.getElementById('doc-nr-select').innerHTML = `<option value="">Documento Geral (Sem NR)</option>` + nrOptions;
-    document.getElementById('cert-nr-select').innerHTML = `<option value="">Treinamento Personalizado</option>` + nrOptions;
+    const nrOptionsTreinamentos = data.catalogo_nrs
+      .filter(n => n.codigo.toUpperCase() !== 'NR-07')
+      .map(n => `<option value="${n.id}">${n.codigo} - ${n.nome} (${n.validade_meses}m)</option>`)
+      .join('');
+
+    document.getElementById('doc-nr-select').innerHTML = `<option value="">Documento Geral (Sem NR)</option>` + nrOptionsTodos;
+    document.getElementById('cert-nr-select').innerHTML = `<option value="">Treinamento Personalizado</option>` + nrOptionsTreinamentos;
 
     document.getElementById('colab-table-body').innerHTML = data.colaboradores.length === 0
       ? `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum colaborador cadastrado.</td></tr>`
@@ -591,6 +596,42 @@ function preencherModalCertificado(cert) {
   document.getElementById('cert-view-codigo').textContent = cert.codigo_validacao;
 }
 
+/* ================= SINCRONIZAÇÃO CRUZADA (SST <-> RH <-> CERTIFICADOS <-> ACERVO) ================= */
+async function syncParaAcervoDigital({ titulo, categoria, dataDocumento, colaboradorId, nomeArquivo, arquivoUrl, textoOcr }) {
+  if (!arquivoUrl) return;
+  await apiFetch('/api/sst', {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'salvar_acervo_item',
+      titulo,
+      categoria: categoria || 'RH / Colaboradores',
+      pasta_fisica: 'Sincronizado via Sistema',
+      data_documento: dataDocumento || new Date().toISOString().slice(0, 10),
+      colaborador_id: colaboradorId || null,
+      nome_arquivo: nomeArquivo || titulo,
+      arquivo_url: arquivoUrl,
+      texto_ocr: textoOcr || ''
+    })
+  }).catch(() => null);
+}
+
+async function syncParaDocumentosRH({ colaboradorId, nrId, tipoDocumento, titulo, dataEmissao, dataValidade, arquivoUrl }) {
+  if (!colaboradorId || !titulo) return;
+  await apiFetch('/api/rh', {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'criar_documento',
+      colaborador_id: colaboradorId,
+      nr_id: nrId || null,
+      tipo_documento: tipoDocumento || (nrId ? 'nr' : 'documento'),
+      titulo,
+      data_emissao: dataEmissao || new Date().toISOString().slice(0, 10),
+      data_validade: dataValidade || null,
+      arquivo_url: arquivoUrl || null
+    })
+  }).catch(() => null);
+}
+
 /* ================= SST: ASOs, MATRIZ DE TREINAMENTOS & PRONTUÁRIO DIGITAL ================= */
 async function loadSST() {
   try {
@@ -609,6 +650,7 @@ async function loadSST() {
     if (asoColabEl) asoColabEl.innerHTML = colabOpts || '<option value="">Cadastre um colaborador</option>';
 
     const nrOpts = sstData.catalogo_nrs
+      .filter(n => n.codigo.toUpperCase() !== 'NR-07')
       .map(n => `<option value="${n.id}" data-val="${n.validade_meses || 12}">${n.codigo} - ${n.nome}</option>`)
       .join('');
     const turmaNrEl = document.getElementById('turma-nr-select');
@@ -692,7 +734,7 @@ async function loadSST() {
 
     renderSstPendencias();
     renderSstAsosTable(sstData.asos);
-    renderProntuarioChecklist(ativos, sstData.tipos_doc_rh, docsRh);
+    renderProntuarioChecklist(ativos, sstData.tipos_doc_rh, docsRh, sstData.acervo);
     renderAdminAutonomia(sstData);
   } catch (err) {
     console.error(err);
@@ -787,7 +829,7 @@ async function excluirAso(id) {
   loadSST();
 }
 
-function renderProntuarioChecklist(ativos, tiposDoc, docsRh) {
+function renderProntuarioChecklist(ativos, tiposDoc, docsRh, acervoItems = []) {
   const tbody = document.getElementById('sst-prontuario-body');
   if (!tbody) return;
 
@@ -799,9 +841,16 @@ function renderProntuarioChecklist(ativos, tiposDoc, docsRh) {
   let somaPct = 0;
   tbody.innerHTML = ativos.map(c => {
     const docsColab = docsRh.filter(d => d.colaborador_id === c.id);
+    const acervoColab = acervoItems.filter(a => a.colaborador_id === c.id);
     let feitos = 0;
+
     const chips = tiposDoc.map(td => {
-      const ok = docsColab.some(d => d.titulo.toLowerCase().includes(td.nome.toLowerCase().slice(0, 8)));
+      const chave = td.nome.toLowerCase().slice(0, 8);
+      const okRh = docsColab.some(d => d.titulo.toLowerCase().includes(chave));
+      const okAcervo = acervoColab.some(a =>
+        `${a.titulo} ${a.texto_ocr || ''}`.toLowerCase().includes(chave)
+      );
+      const ok = okRh || okAcervo;
       if (ok) feitos++;
       return `<span class="status-pill ${ok ? 'pill-green' : 'pill-amber'}" style="margin:2px;">${ok ? '✓' : '○'} ${td.nome}</span>`;
     }).join(' ');
@@ -835,20 +884,29 @@ async function digitalizarDocProntuario(event, colabId) {
   const titulo = prompt(`Qual documento você está digitalizando?\nOpções: ${sugestao}`, tipos[0]?.nome || 'Documento RH');
   if (!titulo) return;
 
+  const colabObj = STATE.sst?.colaboradores.find(c => c.id === colabId);
+  const hoje = new Date().toISOString().slice(0, 10);
+
   try {
     const url = await uploadArquivoR2(file, 'rh-documentos');
-    await apiFetch('/api/rh', {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'criar_documento',
-        colaborador_id: colabId,
-        tipo_documento: 'documento',
+    await Promise.all([
+      syncParaDocumentosRH({
+        colaboradorId: colabId,
+        tipoDocumento: 'documento',
         titulo: titulo.trim(),
-        data_emissao: new Date().toISOString().slice(0, 10),
-        arquivo_url: url
+        dataEmissao: hoje,
+        arquivoUrl: url
+      }),
+      syncParaAcervoDigital({
+        titulo: `${titulo.trim()}${colabObj ? ' - ' + colabObj.nome : ''}`,
+        categoria: 'RH / Colaboradores',
+        dataDocumento: hoje,
+        colaboradorId: colabId,
+        nomeArquivo: file.name,
+        arquivoUrl: url
       })
-    });
-    alert('Documento digitalizado e anexado ao prontuário!');
+    ]);
+    alert('Documento digitalizado e sincronizado com RH e Acervo Digital!');
     loadSST();
   } catch (err) {
     alert(err.message);
@@ -1611,27 +1669,68 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // --- SINCRONIZAÇÃO: DOCUMENTOS & NRs -> SST (SE FOR ASO) + ACERVO DIGITAL ---
   document.getElementById('form-documento').addEventListener('submit', async e => {
     e.preventDefault();
+    const colabId = document.getElementById('doc-colaborador').value;
+    const nrId = document.getElementById('doc-nr-select').value || null;
+    const titulo = document.getElementById('doc-titulo').value.trim();
+    const dataEmissao = document.getElementById('doc-emissao').value || new Date().toISOString().slice(0, 10);
+    const dataValidade = document.getElementById('doc-validade').value || null;
+    const nrObj = STATE.rh?.catalogo_nrs.find(n => n.id === nrId);
+    const colabObj = STATE.rh?.colaboradores.find(c => c.id === colabId);
+
     try {
       let fileUrl = null;
       const fileInput = document.getElementById('doc-file');
-      if (fileInput.files[0]) {
-        fileUrl = await uploadArquivoR2(fileInput.files[0], 'rh-documentos');
+      const fileObj = fileInput.files[0];
+      if (fileObj) {
+        fileUrl = await uploadArquivoR2(fileObj, 'rh-documentos');
       }
+
       await apiFetch('/api/rh', {
         method: 'POST',
         body: JSON.stringify({
           action: 'criar_documento',
-          colaborador_id: document.getElementById('doc-colaborador').value,
-          nr_id: document.getElementById('doc-nr-select').value || null,
-          tipo_documento: document.getElementById('doc-nr-select').value ? 'nr' : 'documento',
-          titulo: document.getElementById('doc-titulo').value,
-          data_emissao: document.getElementById('doc-emissao').value || null,
-          data_validade: document.getElementById('doc-validade').value || null,
+          colaborador_id: colabId,
+          nr_id: nrId,
+          tipo_documento: nrId ? 'nr' : 'documento',
+          titulo,
+          data_emissao: dataEmissao,
+          data_validade: dataValidade,
           arquivo_url: fileUrl
         })
       });
+
+      // Se o documento lançado no RH for NR-07 ou ASO, dá baixa automática no painel SST
+      if (nrObj?.codigo?.toUpperCase() === 'NR-07' || /\baso\b/i.test(titulo)) {
+        await apiFetch('/api/sst', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'salvar_aso',
+            colaborador_id: colabId,
+            tipo_exame: 'periodico',
+            resultado: 'apto',
+            data_exame: dataEmissao,
+            data_validade: dataValidade,
+            medico_clinica: 'Lançado via RH',
+            arquivo_url: fileUrl
+          })
+        }).catch(() => null);
+      }
+
+      // Se houver anexo, indexa automaticamente no Acervo Digital
+      if (fileUrl) {
+        await syncParaAcervoDigital({
+          titulo: `${titulo}${colabObj ? ' - ' + colabObj.nome : ''}`,
+          categoria: nrId ? 'SST / ASOs e NRs' : 'RH / Colaboradores',
+          dataDocumento: dataEmissao,
+          colaboradorId: colabId,
+          nomeArquivo: fileObj?.name || titulo,
+          arquivoUrl: fileUrl
+        });
+      }
+
       e.target.reset();
       loadRH();
     } catch (err) {
@@ -1733,7 +1832,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- LISTENERS DE SST (ASOs + TREINAMENTOS EM TURMA) ---
+  // --- SINCRONIZAÇÃO: SST (ASO) -> COLABORADORES & NRs + ACERVO DIGITAL ---
   document.getElementById('aso-data-exame')?.addEventListener('change', e => {
     const tipo = document.getElementById('aso-tipo')?.value;
     if (e.target.value && tipo !== 'demissional') {
@@ -1745,6 +1844,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('form-sst-aso')?.addEventListener('submit', async e => {
     e.preventDefault();
+    const colabId = document.getElementById('aso-colaborador').value;
+    const tipoExame = document.getElementById('aso-tipo').value;
+    const resultado = document.getElementById('aso-resultado').value;
+    const dataExame = document.getElementById('aso-data-exame').value;
+    const dataValidade = document.getElementById('aso-data-validade').value || null;
+    const clinica = document.getElementById('aso-clinica').value;
+
+    const colabObj = STATE.sst?.colaboradores.find(c => c.id === colabId);
+    const nr07 = STATE.sst?.catalogo_nrs.find(n => n.codigo.toUpperCase() === 'NR-07');
+
     try {
       let fileUrl = null;
       const f = document.getElementById('aso-file').files[0];
@@ -1754,15 +1863,38 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         body: JSON.stringify({
           action: 'salvar_aso',
-          colaborador_id: document.getElementById('aso-colaborador').value,
-          tipo_exame: document.getElementById('aso-tipo').value,
-          resultado: document.getElementById('aso-resultado').value,
-          data_exame: document.getElementById('aso-data-exame').value,
-          data_validade: document.getElementById('aso-data-validade').value || null,
-          medico_clinica: document.getElementById('aso-clinica').value,
+          colaborador_id: colabId,
+          tipo_exame: tipoExame,
+          resultado,
+          data_exame: dataExame,
+          data_validade: dataValidade,
+          medico_clinica: clinica,
           arquivo_url: fileUrl
         })
       });
+
+      const tituloAso = `NR-07 - ASO (${tipoExame.replace('_', ' ')} · ${resultado.replace('_', ' ')})`;
+      await syncParaDocumentosRH({
+        colaboradorId: colabId,
+        nrId: nr07?.id || null,
+        tipoDocumento: 'nr',
+        titulo: tituloAso,
+        dataEmissao: dataExame,
+        dataValidade,
+        arquivoUrl: fileUrl
+      });
+
+      if (fileUrl) {
+        await syncParaAcervoDigital({
+          titulo: `${tituloAso}${colabObj ? ' - ' + colabObj.nome : ''}`,
+          categoria: 'SST / ASOs e NRs',
+          dataDocumento: dataExame,
+          colaboradorId: colabId,
+          nomeArquivo: f?.name || tituloAso,
+          arquivoUrl: fileUrl
+        });
+      }
+
       e.target.reset();
       loadSST();
     } catch (err) {
@@ -1770,6 +1902,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // --- SINCRONIZAÇÃO: SST (TURMA) -> RH + CERTIFICADOS + ACERVO DIGITAL ---
   document.getElementById('turma-nr-select')?.addEventListener('change', e => {
     const opt = e.target.selectedOptions[0];
     if (opt?.dataset.val) {
@@ -1791,6 +1924,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const dtVal = new Date(dataEmissao + 'T12:00:00');
     dtVal.setMonth(dtVal.getMonth() + meses);
     const dataValidade = dtVal.toISOString().slice(0, 10);
+    const tituloTreinamento = nrObj ? `${nrObj.codigo} - ${nrObj.nome}` : 'Treinamento SST';
+
+    const emitirCerts = confirm(
+      `Deseja também emitir os Certificados Oficiais para os ${selecionados.length} participante(s) no Gerador de Certificados?\n\nOK = Atualizar validade + Emitir Certificados\nCancelar = Apenas atualizar validade da NR`
+    );
 
     try {
       let fileUrl = null;
@@ -1798,22 +1936,51 @@ document.addEventListener('DOMContentLoaded', () => {
       if (f) fileUrl = await uploadArquivoR2(f, 'sst-treinamentos');
 
       for (const colabId of selecionados) {
-        await apiFetch('/api/rh', {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'criar_documento',
-            colaborador_id: colabId,
-            nr_id: nrId,
-            tipo_documento: 'nr',
-            titulo: nrObj ? `${nrObj.codigo} - ${nrObj.nome}` : 'Treinamento SST',
-            data_emissao: dataEmissao,
-            data_validade: dataValidade,
-            arquivo_url: fileUrl
-          })
+        if (emitirCerts) {
+          await apiFetch('/api/rh', {
+            method: 'POST',
+            body: JSON.stringify({
+              action: 'gerar_certificado',
+              colaborador_id: colabId,
+              nr_id: nrId,
+              titulo_curso: tituloTreinamento,
+              carga_horaria: nrObj?.carga_horaria_padrao || 8,
+              data_conclusao: dataEmissao,
+              validade_meses: meses,
+              instrutor_nome: STATE.user?.nome || 'Responsável Técnico SST',
+              instrutor_registro: '',
+              conteudo_programatico: nrObj?.conteudo_programatico || ''
+            })
+          });
+        } else {
+          await syncParaDocumentosRH({
+            colaboradorId: colabId,
+            nrId,
+            tipoDocumento: 'nr',
+            titulo: tituloTreinamento,
+            dataEmissao,
+            dataValidade,
+            arquivoUrl: fileUrl
+          });
+        }
+      }
+
+      if (fileUrl) {
+        await syncParaAcervoDigital({
+          titulo: `Lista de Presença / Certificado - ${tituloTreinamento} (${selecionados.length} participantes)`,
+          categoria: 'SST / ASOs e NRs',
+          dataDocumento: dataEmissao,
+          colaboradorId: selecionados.length === 1 ? selecionados[0] : null,
+          nomeArquivo: f?.name || tituloTreinamento,
+          arquivoUrl: fileUrl
         });
       }
 
-      alert(`Treinamento lançado com sucesso para ${selecionados.length} colaborador(es)!`);
+      alert(
+        emitirCerts
+          ? `Treinamento lançado e ${selecionados.length} certificado(s) emitido(s) com sucesso!`
+          : `Treinamento lançado para ${selecionados.length} colaborador(es)!`
+      );
       e.target.reset();
       loadSST();
     } catch (err) {
@@ -1821,7 +1988,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- LISTENER DO ACERVO DIGITAL (DIGITALIZAÇÃO EM LOTE COM OCR) ---
+  // --- SINCRONIZAÇÃO: ACERVO DIGITAL (EM LOTE) -> RH & PRONTUÁRIO SST ---
   document.getElementById('form-acervo-lote')?.addEventListener('submit', async e => {
     e.preventDefault();
     const files = [...document.getElementById('acervo-files').files];
@@ -1866,9 +2033,20 @@ document.addEventListener('DOMContentLoaded', () => {
             texto_ocr: parsed.texto || ''
           })
         });
+
+        // Se o documento digitalizado foi vinculado a um colaborador, atualiza também o RH e o Prontuário SST
+        if (colabId) {
+          await syncParaDocumentosRH({
+            colaboradorId: colabId,
+            tipoDocumento: 'documento',
+            titulo: tituloFinal,
+            dataEmissao: dataDoc || new Date().toISOString().slice(0, 10),
+            arquivoUrl: fileUrl
+          });
+        }
       }
 
-      status.textContent = `${files.length} documento(s) digitalizado(s) e indexado(s) com sucesso!`;
+      status.textContent = `${files.length} documento(s) digitalizado(s) e sincronizado(s) com sucesso!`;
       e.target.reset();
       loadAcervo();
     } catch (err) {
