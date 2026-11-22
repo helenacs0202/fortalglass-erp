@@ -226,13 +226,27 @@ body {
   min-height: 100vh;
 }
 
+.sidebar {
+  width: 265px;
+  min-width: 265px;
+  background-color: var(--primary);
+  color: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-x: hidden;
+}
+
 /* Caixa fixa no topo; logo centralizada e em destaque */
 .sidebar-header,
 .sidebar-brand {
-  height: 100px;
-  min-height: 100px;
-  max-height: 100px;
-  padding: 6px 12px;
+  height: 104px;
+  min-height: 104px;
+  max-height: 104px;
+  padding: 0 12px;
   background-color: var(--primary-logo);
   border-bottom: 3px solid var(--accent);
   display: flex;
@@ -244,15 +258,16 @@ body {
 .sidebar-header img,
 .sidebar-brand img,
 .brand-logo {
+  height: 90px;
   width: auto;
-  max-width: 230px;
-  max-height: 82px;
-  height: auto;
+  max-width: none;
+  max-height: none;
   object-fit: contain;
   display: block;
   margin: 0 auto;
-  transform: scale(1.32);
+  transform: scale(1.62);
   transform-origin: center center;
+}
 }
 
 .sidebar-header img,
