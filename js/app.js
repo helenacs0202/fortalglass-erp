@@ -16,7 +16,7 @@ const MODULE_INFO = {
   receber: { title: 'Contas a Receber', subtitle: 'Serviços comerciais, parcelas e controle de Nota Fiscal' },
   pagar: { title: 'Contas a Pagar', subtitle: 'Despesas, rateio, transcrição por foto de NF e comprovantes no R2' },
   rh_colaboradores: { title: 'Colaboradores & NRs', subtitle: 'Ficha cadastral, salários, documentos e NRs pré-definidas' },
-  pastas_funcionarios: { title: 'Pasta dos Funcionários', subtitle: 'Prontuário individual, documentos obrigatórios, ASOs, NRs e certificados por colaborador' },
+  pastas_funcionarios: { title: 'Pasta dos Funcionários', subtitle: 'Prontuário individual, foto, documentos obrigatórios, ASOs, NRs e certificados por colaborador' },
   rh_folha: { title: 'Vales & Folha de Pagamento', subtitle: 'Adiantamentos, comissões e fechamento mensal' },
   rh_comportamento: { title: 'Comportamento & Produtividade', subtitle: 'Relatórios disciplinares e desempenho da equipe' },
   certificados: { title: 'Gerador de Certificados', subtitle: 'Emissão oficial de certificados de NRs e treinamentos' },
@@ -918,6 +918,26 @@ async function digitalizarDocProntuario(event, colabId) {
 /* ================= PASTA INDIVIDUAL DOS FUNCIONÁRIOS ================= */
 let PASTA_ATUAL_COLAB_ID = null;
 
+function getFotoColaborador(colabId) {
+  const docsRh = STATE.rh?.documentos || [];
+  const matchDoc = docsRh.find(
+    d => d.colaborador_id === colabId &&
+      d.arquivo_url &&
+      (d.tipo_documento === 'foto_perfil' || d.titulo.toLowerCase().includes('foto de perfil'))
+  );
+  if (matchDoc?.arquivo_url) return matchDoc.arquivo_url;
+
+  const acervo = STATE.sst?.acervo || [];
+  const matchAcervo = acervo.find(
+    a => a.colaborador_id === colabId &&
+      a.arquivo_url &&
+      a.titulo.toLowerCase().includes('foto de perfil')
+  );
+  if (matchAcervo?.arquivo_url) return matchAcervo.arquivo_url;
+
+  return localStorage.getItem(`fg_foto_colab_${colabId}`) || null;
+}
+
 async function loadPastasFuncionarios() {
   try {
     const mes = new Date().toISOString().slice(0, 7);
@@ -962,10 +982,11 @@ function renderPastasGrid() {
   }
 
   container.innerHTML = colabs.map(c => {
-    const docsC = docsRh.filter(d => d.colaborador_id === c.id);
+    const docsC = docsRh.filter(d => d.colaborador_id === c.id && d.tipo_documento !== 'foto_perfil');
     const asosC = asos.filter(a => a.colaborador_id === c.id);
     const certsC = certs.filter(ct => ct.colaborador_id === c.id);
     const acervoC = acervo.filter(ac => ac.colaborador_id === c.id);
+    const fotoUrl = getFotoColaborador(c.id);
 
     let obrigFeitos = 0;
     tiposDoc.forEach(td => {
@@ -979,11 +1000,15 @@ function renderPastasGrid() {
     const pct = tiposDoc.length ? Math.round((obrigFeitos / totalObrig) * 100) : 100;
     const totalArquivos = docsC.length + asosC.length + certsC.length + acervoC.length;
 
+    const avatarHtml = fotoUrl
+      ? `<img src="${fotoUrl}" alt="${c.nome}" class="pasta-avatar" />`
+      : `<div class="pasta-icon">📁</div>`;
+
     return `
       <div class="pasta-card" onclick="abrirPastaFuncionario('${c.id}')">
         <div class="pasta-card-top">
           <div style="display:flex; align-items:center; gap:10px;">
-            <div class="pasta-icon">📁</div>
+            ${avatarHtml}
             <div>
               <strong style="display:block; font-size:15px;">${c.nome}</strong>
               <small style="color:var(--text-muted);">${c.cargo || 'Colaborador'} · ${(c.setor || 'geral').toUpperCase()}</small>
@@ -1013,12 +1038,22 @@ function abrirPastaFuncionario(colabId) {
   document.getElementById('pastas-lista-view').classList.add('hidden');
   document.getElementById('pasta-detalhe-view').classList.remove('hidden');
 
-  document.getElementById('pasta-detalhe-nome').textContent = `📁 Pasta de ${colab.nome}`;
+  const fotoUrl = getFotoColaborador(colabId);
+  const avatarBox = document.getElementById('pasta-detalhe-avatar-box');
+  if (avatarBox) {
+    avatarBox.innerHTML = fotoUrl
+      ? `<img src="${fotoUrl}" alt="${colab.nome}" />`
+      : '📁';
+  }
+  const statusEl = document.getElementById('pasta-foto-status');
+  if (statusEl) statusEl.textContent = '';
+
+  document.getElementById('pasta-detalhe-nome').textContent = `Pasta de ${colab.nome}`;
   document.getElementById('pasta-detalhe-info').textContent =
     `${colab.cargo || 'Sem cargo'} · Setor: ${(colab.setor || 'geral').toUpperCase()}${colab.cpf ? ' · CPF: ' + colab.cpf : ''}`;
 
   const tiposDoc = STATE.sst.tipos_doc_rh || [];
-  const docsC = (STATE.rh?.documentos || []).filter(d => d.colaborador_id === colabId);
+  const docsC = (STATE.rh?.documentos || []).filter(d => d.colaborador_id === colabId && d.tipo_documento !== 'foto_perfil');
   const asosC = (STATE.sst?.asos || []).filter(a => a.colaborador_id === colabId);
   const certsC = (STATE.rh?.certificados || []).filter(ct => ct.colaborador_id === colabId);
   const acervoC = (STATE.sst?.acervo || []).filter(ac => ac.colaborador_id === colabId);
@@ -1115,6 +1150,47 @@ function fecharPastaFuncionario() {
   document.getElementById('pasta-detalhe-view').classList.add('hidden');
   document.getElementById('pastas-lista-view').classList.remove('hidden');
   renderPastasGrid();
+}
+
+async function uploadFotoPastaAtual(event) {
+  const file = event.target.files[0];
+  if (!file || !PASTA_ATUAL_COLAB_ID) return;
+  const colabObj = STATE.sst?.colaboradores.find(c => c.id === PASTA_ATUAL_COLAB_ID);
+  const hoje = new Date().toISOString().slice(0, 10);
+  const statusEl = document.getElementById('pasta-foto-status');
+
+  if (statusEl) statusEl.textContent = 'Salvando foto...';
+
+  try {
+    const url = await uploadArquivoR2(file, 'rh-fotos');
+    localStorage.setItem(`fg_foto_colab_${PASTA_ATUAL_COLAB_ID}`, url);
+
+    await Promise.all([
+      syncParaDocumentosRH({
+        colaboradorId: PASTA_ATUAL_COLAB_ID,
+        tipoDocumento: 'foto_perfil',
+        titulo: 'Foto de Perfil',
+        dataEmissao: hoje,
+        arquivoUrl: url
+      }),
+      syncParaAcervoDigital({
+        titulo: `Foto de Perfil${colabObj ? ' - ' + colabObj.nome : ''}`,
+        categoria: 'RH / Colaboradores',
+        dataDocumento: hoje,
+        colaboradorId: PASTA_ATUAL_COLAB_ID,
+        nomeArquivo: file.name,
+        arquivoUrl: url
+      })
+    ]);
+
+    event.target.value = '';
+    await loadPastasFuncionarios();
+    const statusAfter = document.getElementById('pasta-foto-status');
+    if (statusAfter) statusAfter.textContent = 'Foto atualizada!';
+  } catch (err) {
+    if (statusEl) statusEl.textContent = '';
+    alert('Erro ao salvar foto do funcionário: ' + err.message);
+  }
 }
 
 async function uploadItemObrigatorioPasta(event, colabId, tituloDoc) {
