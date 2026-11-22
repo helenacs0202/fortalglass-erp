@@ -96,7 +96,7 @@
       </nav>
 
       <div class="sidebar-footer">
-        FortalGlass ERP · v2.0
+        FortalGlass ERP · v2.1
       </div>
     </aside>
 
@@ -108,8 +108,8 @@
         </div>
 
         <div class="topbar-actions">
-          <button id="btn-open-ocr-global" class="btn-pill btn-outline btn-sm">
-            Ler NF / Documento
+          <button id="btn-open-ocr-global" class="btn-pill btn-gold btn-sm">
+            Transcrever Foto de NF / Doc
           </button>
           <div class="user-chip">
             <span id="topbar-user-name" class="user-name">Usuário</span>
@@ -144,7 +144,7 @@
                 </div>
               </div>
               <div id="kpi-projecao" class="kpi-value text-success">R$ 0,00</div>
-              <div class="kpi-sub">Saldo atual + a receber - a pagar (30d)</div>
+              <div id="kpi-projecao-sub" class="kpi-sub">Saldo atual + a receber - a pagar (30d)</div>
             </div>
 
             <div class="card kpi-card">
@@ -360,27 +360,30 @@
           </div>
         </section>
 
-        <!-- 4. CONTAS A PAGAR (COM LEITOR DE NF & RATEIO) -->
+        <!-- 4. CONTAS A PAGAR (COM LEITOR POR FOTO DE NF & RATEIO) -->
         <section id="section-pagar" class="hidden">
           <div class="card">
             <div class="card-header">
               <div>
                 <h2 class="card-title">Nova Conta a Pagar</h2>
-                <p class="card-subtitle">Importe o XML/PDF/Foto da NF para preenchimento automático ou lance manualmente</p>
+                <p class="card-subtitle">Envie uma foto ou print da Nota Fiscal / Boleto para transcrição automática ou preencha abaixo</p>
               </div>
             </div>
 
             <div class="ocr-box">
-              <div class="ocr-box-info">
-                <h4>Leitura Automática de NF / Boleto + Anexo no R2</h4>
-                <p>Envie XML de NF-e, PDF ou foto do documento para preencher fornecedor, NF, vencimento e valor.</p>
+              <div style="display:flex; align-items:center; gap:14px;">
+                <img id="pagar-ocr-preview" class="hidden" alt="Prévia da NF" style="width:64px; height:64px; object-fit:cover; border-radius:10px; border:1px solid var(--border);" />
+                <div class="ocr-box-info">
+                  <h4>Transcrever Foto / Imagem da NF (JPG, PNG) ou PDF</h4>
+                  <p>Não precisa de XML: tire foto ou envie o print da NF para extrair fornecedor, CNPJ, nº da NF, vencimento e valor.</p>
+                </div>
               </div>
               <div>
-                <input type="file" id="pagar-file-ocr" accept=".xml,.pdf,image/*" class="hidden" />
+                <input type="file" id="pagar-file-ocr" accept="image/*,.pdf,.xml" class="hidden" />
                 <button type="button" class="btn-pill btn-gold btn-sm" onclick="document.getElementById('pagar-file-ocr').click()">
-                  Importar NF / Comprovante
+                  Enviar Foto da NF
                 </button>
-                <span id="pagar-ocr-status" style="font-size:0.78rem; margin-left:8px; color:var(--primary); font-weight:600;"></span>
+                <span id="pagar-ocr-status" style="display:block; font-size:0.78rem; margin-top:6px; color:var(--primary); font-weight:600;"></span>
               </div>
             </div>
 
@@ -601,8 +604,8 @@
                   <input type="date" id="doc-validade" class="form-control" />
                 </div>
                 <div class="form-group">
-                  <label>Arquivo (PDF ou Foto)</label>
-                  <input type="file" id="doc-file" accept=".pdf,image/*" class="form-control" />
+                  <label>Arquivo (Foto ou PDF)</label>
+                  <input type="file" id="doc-file" accept="image/*,.pdf" class="form-control" />
                 </div>
               </div>
               <button type="submit" class="btn-pill btn-primary">Salvar Documento / NR</button>
@@ -1131,59 +1134,68 @@
     </div>
   </div>
 
-  <!-- MODAL: LEITOR / TRANSCRIÇÃO DE DOCUMENTOS E NF -->
+  <!-- MODAL: LEITOR / TRANSCRIÇÃO POR FOTO DE NF E DOCUMENTOS -->
   <div id="modal-ocr-global" class="modal-backdrop hidden">
-    <div class="modal-box">
+    <div class="modal-box modal-box-lg">
       <div class="card-header">
         <div>
-          <h3 class="card-title">Leitor & Transcrição de NF e Documentos</h3>
-          <p class="card-subtitle">Extraia dados de XML, PDF ou foto (RG, CPF, NF, Boleto) e envie direto para o módulo</p>
+          <h3 class="card-title">Transcrever Foto / Imagem de NF ou Documento</h3>
+          <p class="card-subtitle">Envie uma foto, print de tela ou PDF da Nota Fiscal (não precisa de XML) para preencher automaticamente</p>
         </div>
         <button type="button" class="btn-pill btn-outline btn-sm" onclick="fecharModal('modal-ocr-global')">Fechar</button>
       </div>
 
-      <div class="form-group">
-        <label>Selecione o arquivo (XML NF-e, PDF ou Imagem JPG/PNG)</label>
-        <input type="file" id="global-ocr-file" accept=".xml,.pdf,image/*" class="form-control" />
-      </div>
+      <div style="display:grid; grid-template-columns: 1fr 2fr; gap:18px; align-items:start;">
+        <div>
+          <div class="form-group">
+            <label>Foto / Imagem da NF (JPG, PNG) ou PDF</label>
+            <input type="file" id="global-ocr-file" accept="image/*,.pdf,.xml" class="form-control" />
+          </div>
+          <div id="global-ocr-status" style="font-size:0.82rem; font-weight:600; color:var(--primary); margin-bottom:10px;"></div>
+          <img id="global-ocr-preview" class="hidden" alt="Imagem da NF" style="width:100%; max-height:280px; object-fit:contain; border-radius:12px; border:1px solid var(--border); background:#F8FAFC;" />
+        </div>
 
-      <div id="global-ocr-status" style="font-size:0.82rem; font-weight:600; color:var(--primary); margin-bottom:12px;"></div>
+        <div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Fornecedor / Cliente Detectado</label>
+              <input type="text" id="ocr-res-nome" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>CNPJ ou CPF Detectado</label>
+              <input type="text" id="ocr-res-doc" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Nº da NF Detectado</label>
+              <input type="text" id="ocr-res-nf" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Valor Total Detectado (R$)</label>
+              <input type="text" id="ocr-res-valor" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label>Data / Vencimento Detectado</label>
+              <input type="date" id="ocr-res-data" class="form-control" />
+            </div>
+          </div>
 
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Nome / Fornecedor Detectado</label>
-          <input type="text" id="ocr-res-nome" class="form-control" />
-        </div>
-        <div class="form-group">
-          <label>CNPJ ou CPF Detectado</label>
-          <input type="text" id="ocr-res-doc" class="form-control" />
-        </div>
-        <div class="form-group">
-          <label>Nº NF / Documento</label>
-          <input type="text" id="ocr-res-nf" class="form-control" />
-        </div>
-        <div class="form-group">
-          <label>Valor Total Detectado (R$)</label>
-          <input type="text" id="ocr-res-valor" class="form-control" />
-        </div>
-        <div class="form-group">
-          <label>Data / Vencimento Detectado</label>
-          <input type="date" id="ocr-res-data" class="form-control" />
-        </div>
-      </div>
+          <div class="form-group">
+            <label>Texto Transcrito da Imagem</label>
+            <textarea id="ocr-res-texto" rows="4" class="form-control"></textarea>
+          </div>
 
-      <div class="form-group">
-        <label>Texto Transcrito Completo</label>
-        <textarea id="ocr-res-texto" rows="4" class="form-control"></textarea>
-      </div>
-
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button type="button" class="btn-pill btn-primary btn-sm" onclick="aplicarOcrEmContasPagar()">
-          Usar em Contas a Pagar
-        </button>
-        <button type="button" class="btn-pill btn-gold btn-sm" onclick="aplicarOcrEmColaborador()">
-          Usar em Cadastro de Colaborador (RH)
-        </button>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button type="button" class="btn-pill btn-primary btn-sm" onclick="aplicarOcrEmContasPagar()">
+              Preencher Contas a Pagar
+            </button>
+            <button type="button" class="btn-pill btn-outline btn-sm" onclick="aplicarOcrEmContasReceber()">
+              Preencher Contas a Receber
+            </button>
+            <button type="button" class="btn-pill btn-gold btn-sm" onclick="aplicarOcrEmColaborador()">
+              Preencher Colaborador (RH)
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
