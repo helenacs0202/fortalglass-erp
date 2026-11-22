@@ -628,7 +628,7 @@ function resetFormUsuarioAdm() {
   document.getElementById('adm-user-id').value = '';
 }
 
-/* ================= TRANSCRIÇÃO DE FOTO DE NF / DOCUMENTOS + UPLOAD R2 ================= */
+/* ================= TRANSCRIÇÃO AVANÇADA DE FOTO DE DANFE / NF ================= */
 async function uploadArquivoR2(file, pasta) {
   const formData = new FormData();
   formData.append('file', file);
@@ -637,33 +637,51 @@ async function uploadArquivoR2(file, pasta) {
   return res.url;
 }
 
-function prepararImagemParaOcr(file) {
-  return new Promise(resolve => {
+function renderizarCanvasNitido(img, cropTopRatio = 1.0) {
+  const targetWidth = Math.max(2400, Math.min(3200, img.width * 3));
+  const scale = targetWidth / img.width;
+  const srcH = Math.round(img.height * cropTopRatio);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(img.width * scale);
+  canvas.height = Math.round(srcH * scale);
+
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.filter = 'grayscale(100%) contrast(125%)';
+  ctx.drawImage(img, 0, 0, img.width, srcH, 0, 0, canvas.width, canvas.height);
+
+  return new Promise(resolve => canvas.toBlob(blob => resolve(blob), 'image/png'));
+}
+
+function carregarImagem(file) {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
-      const scale = img.width < 1600 ? Math.min(2.2, 1800 / img.width) : 1;
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      const ctx = canvas.getContext('2d');
-      ctx.filter = 'grayscale(100%) contrast(145%) brightness(105%)';
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
-      canvas.toBlob(blob => resolve(blob || file), 'image/png');
+      resolve(img);
     };
-    img.onerror = () => {
+    img.onerror = err => {
       URL.revokeObjectURL(url);
-      resolve(file);
+      reject(err);
     };
     img.src = url;
   });
 }
 
+function formatarCnpj14(d) {
+  if (!d || d.length !== 14) return '';
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`;
+}
+
 async function extrairTextoArquivo(file, onProgress) {
   const name = file.name.toLowerCase();
 
-  // 1. Se for XML NF-e
+  // 1. XML NF-e
   if (name.endsWith('.xml')) {
     const xmlText = await file.text();
     const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
@@ -683,7 +701,7 @@ async function extrairTextoArquivo(file, onProgress) {
     };
   }
 
-  // 2. Se for PDF
+  // 2. PDF
   let rawText = '';
   if (name.endsWith('.pdf') && window.pdfjsLib) {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -696,47 +714,116 @@ async function extrairTextoArquivo(file, onProgress) {
       const content = await page.getTextContent();
       rawText += content.items.map(item => item.str).join(' ') + '\n';
     }
-  } else if (file.type.startsWith('image/') && window.Tesseract) {
-    // 3. Foto / Print de NF com pré-processamento de nitidez
-    if (onProgress) onProgress('Melhorando nitidez da imagem...');
-    const imagemNitida = await prepararImagemParaOcr(file);
-    const result = await Tesseract.recognize(imagemNitida, 'por', {
+    return parseTextoNotaFiscal(rawText);
+  }
+
+  // 3. Imagem / Foto de DANFE (2 passes: Cabeçalho ampliado + Página completa)
+  if (file.type.startsWith('image/') && window.Tesseract) {
+    if (onProgress) onProgress('Ampliando cabeçalho da Nota Fiscal...');
+    const img = await carregarImagem(file);
+    const topBlob = await renderizarCanvasNitido(img, 0.55);
+    const fullBlob = await renderizarCanvasNitido(img, 1.0);
+
+    const resTop = await Tesseract.recognize(topBlob, 'por', {
       logger: m => {
         if (m.status === 'recognizing text' && onProgress) {
-          onProgress(`Transcrevendo imagem da NF... ${Math.round((m.progress || 0) * 100)}%`);
+          onProgress(`Lendo dados principais da NF... ${Math.round((m.progress || 0) * 100)}%`);
         }
       }
     });
-    rawText = result.data.text || '';
-  } else {
-    rawText = await file.text().catch(() => '');
+
+    const resFull = await Tesseract.recognize(fullBlob, 'por', {
+      logger: m => {
+        if (m.status === 'recognizing text' && onProgress) {
+          onProgress(`Conferindo itens e totais... ${Math.round((m.progress || 0) * 100)}%`);
+        }
+      }
+    });
+
+    const combinedText = `${resTop.data.text || ''}\n--- PAGINA COMPLETA ---\n${resFull.data.text || ''}`;
+    const parsed = parseTextoNotaFiscal(combinedText);
+    parsed.texto = (resFull.data.text || resTop.data.text || '').trim();
+    return parsed;
   }
 
+  rawText = await file.text().catch(() => '');
   return parseTextoNotaFiscal(rawText);
 }
 
 function parseTextoNotaFiscal(text) {
   const cleanText = text.replace(/\r/g, '');
 
-  // Chave de acesso de 44 dígitos (extrai também o nº da NF posições 25..34)
-  const chaveMatch = cleanText.replace(/\s+/g, '').match(/\d{44}/);
+  // 1. Chave de acesso de 44 dígitos (aceita espaços, pontos e traços entre os grupos)
+  const digitsOnlyStream = cleanText.replace(/[^\d\n]/g, '');
+  const chave44Match = digitsOnlyStream.match(/\d{44}/);
   let nfFromChave = '';
-  if (chaveMatch) {
-    nfFromChave = String(parseInt(chaveMatch[0].slice(25, 34), 10) || '');
+  let cnpjFromChave = '';
+  if (chave44Match) {
+    const chave = chave44Match[0];
+    cnpjFromChave = formatarCnpj14(chave.slice(6, 20));
+    const nfNum = parseInt(chave.slice(25, 34), 10);
+    if (!isNaN(nfNum) && nfNum > 0) nfFromChave = String(nfNum);
   }
 
-  const cnpjMatch = cleanText.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
+  // 2. Número da NF (aceita pontos de milhar como Nº 000.000.005, Nº 000555, Nº. 108)
+  const nfRegexList = [
+    /(?:NF-e|NFE|NOTA\s+FISCAL|DANFE)[\s\S]{0,40}?N[º°o]\.?\s*[:\-]?\s*0*([\d\.]{1,11})/i,
+    /N[º°o]\.?\s*[:\-]?\s*0*([\d\.]{1,11})\s*(?:S[ÉE]RIE|FL|FOLHA)/i
+  ];
+  let nfFromText = '';
+  for (const rx of nfRegexList) {
+    const m = cleanText.match(rx);
+    if (m && m[1]) {
+      const onlyDigits = m[1].replace(/\./g, '').replace(/^0+/, '');
+      if (onlyDigits && onlyDigits.length <= 9) {
+        nfFromText = onlyDigits;
+        break;
+      }
+    }
+  }
+  const numeroNf = nfFromChave || nfFromText;
+
+  // 3. Emitente / Fornecedor: prioriza o canhoto "RECEBEMOS DE <EMPRESA> OS PRODUTOS"
+  let emitente = '';
+  const canhotoMatch = cleanText.match(/RECEBEMOS\s+DE\s+([A-Z0-9À-Ú\s\.\-\/&]+?)\s+(?:OS\s+PRODUTOS|A\(S\)|AS\s+MERCADORIAS|CONSTANTES)/i);
+  if (canhotoMatch && canhotoMatch[1]) {
+    emitente = canhotoMatch[1].replace(/\s+/g, ' ').trim();
+  }
+
+  if (!emitente) {
+    const lines = cleanText
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l =>
+        l.length > 4 &&
+        !/^(DANFE|DOCUMENTO AUXILIAR|CHAVE DE ACESSO|CONSULTA DE AUTENTICIDADE|RECEBEMOS DE|DESTINAT[ÁA]RIO|NF-E EMITIDA|AMBIENTE DE HOMOLOGA)/i.test(l)
+      );
+    const empresaLine = lines.find(l =>
+      /(LTDA|S\/A|S\.A|EIRELI|ME\b|EPP\b|VIDROS|DISTRIBUIDORA|COMERCIAL|COMERCIO|INDUSTRIA|TRANSPORTADORAS)/i.test(l)
+    );
+    emitente = (empresaLine || lines[0] || '').slice(0, 90);
+  }
+
+  // 4. CNPJ (prioriza CNPJ extraído da Chave de Acesso do Emitente ou o 1º CNPJ da nota)
+  const cnpjMatches = [...cleanText.matchAll(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g)].map(m => m[0]);
   const cpfMatch = cleanText.match(/\d{3}\.\d{3}\.\d{3}-\d{2}/);
+  const docFinal = cnpjFromChave || cnpjMatches[0] || (cpfMatch ? cpfMatch[0] : '');
 
-  const nfMatch = cleanText.match(/(?:NF-e|NFE|NOTA FISCAL|N[º°o]\.?)\s*[:\-]?\s*0*(\d{1,9})/i);
-  const numeroNf = (nfMatch && nfMatch[1]) ? nfMatch[1] : nfFromChave;
-
-  // Busca valor próximo a TOTAL ou pega o maior valor em R$ da nota
-  const totalEspecifico = cleanText.match(/(?:VALOR\s+TOTAL\s+DA\s+NOTA|VALOR\s+TOTAL|TOTAL\s+GERAL|VALOR\s+L[ÍI]QUIDO|TOTAL\s+R\$)\s*[:\-]?\s*R?\$?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i);
+  // 5. Valor Total da Nota (prioriza VALOR TOTAL DA NOTA sobre Valor Total dos Produtos)
   let valorNum = '';
-  if (totalEspecifico) {
-    valorNum = totalEspecifico[1].replace(/\./g, '').replace(',', '.');
-  } else {
+  const valorNotaRegexList = [
+    /VALOR\s+TOTAL\s+DA\s+NOTA[\s\S]{0,60}?(\d{1,3}(?:\.\d{3})*,\d{2})/i,
+    /VALOR\s+TOTAL\s*[:\-]?\s*R?\$?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i,
+    /TOTAL\s+GERAL[\s\S]{0,40}?(\d{1,3}(?:\.\d{3})*,\d{2})/i
+  ];
+  for (const rx of valorNotaRegexList) {
+    const m = cleanText.match(rx);
+    if (m && m[1]) {
+      valorNum = m[1].replace(/\./g, '').replace(',', '.');
+      break;
+    }
+  }
+  if (!valorNum) {
     const todosValores = [...cleanText.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)]
       .map(m => parseFloat(m[1].replace(/\./g, '').replace(',', '.')))
       .filter(n => !isNaN(n) && n > 0 && n < 10000000);
@@ -745,27 +832,22 @@ function parseTextoNotaFiscal(text) {
     }
   }
 
-  // Busca data de vencimento ou emissão
-  const vencMatch = cleanText.match(/(?:VENCIMENTO|VENC\.?)\s*[:\-]?\s*(\d{2})\/(\d{2})\/(\d{4})/i);
-  const anyDateMatch = cleanText.match(/(\d{2})\/(\d{2})\/(20\d{2})/);
+  // 6. Data (prioriza Vencimento de Fatura/Duplicata, depois Data de Emissão)
   let dataIso = '';
-  if (vencMatch) {
-    dataIso = `${vencMatch[3]}-${vencMatch[2]}-${vencMatch[1]}`;
-  } else if (anyDateMatch) {
-    dataIso = `${anyDateMatch[3]}-${anyDateMatch[2]}-${anyDateMatch[1]}`;
+  const faturaSection = cleanText.match(/FATURAS?[\s\S]{0,260}/i)?.[0] || '';
+  const vencFaturaMatch = faturaSection.match(/(\d{2})\/(\d{2})\/(20\d{2})/);
+  const vencLabelMatch = cleanText.match(/(?:VENCIMENTO|VENC\.?)[\s\S]{0,30}?(\d{2})\/(\d{2})\/(20\d{2})/i);
+  const emissaoMatch = cleanText.match(/(?:EMISS[ÃA]O)[\s\S]{0,35}?(\d{2})\/(\d{2})\/(20\d{2})/i);
+  const anyDateMatch = cleanText.match(/(\d{2})\/(\d{2})\/(20\d{2})/);
+
+  const chosenDate = vencFaturaMatch || vencLabelMatch || emissaoMatch || anyDateMatch;
+  if (chosenDate) {
+    dataIso = `${chosenDate[3]}-${chosenDate[2]}-${chosenDate[1]}`;
   }
 
-  // Busca razão social ignorando cabeçalhos padrão de DANFE
-  const lines = cleanText
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l.length > 4 && !/^(DANFE|DOCUMENTO AUXILIAR|CHAVE DE ACESSO|CONSULTA DE AUTENTICIDADE|RECEBEMOS DE)/i.test(l));
-
-  const empresaLine = lines.find(l => /(LTDA|S\/A|S\.A|EIRELI|ME\b|EPP\b|VIDROS|DISTRIBUIDORA|COMERCIO|INDUSTRIA)/i.test(l));
-
   return {
-    nome: (empresaLine || lines[0] || '').slice(0, 90),
-    doc: cnpjMatch ? cnpjMatch[0] : (cpfMatch ? cpfMatch[0] : ''),
+    nome: emitente.slice(0, 90),
+    doc: docFinal,
     nf: numeroNf,
     valor: valorNum,
     data: dataIso,
@@ -858,7 +940,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('rh-mes-filtro').addEventListener('change', loadRH);
 
-  // Leitor por Foto de NF direto em Contas a Pagar
   document.getElementById('pagar-file-ocr').addEventListener('change', async e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -898,7 +979,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Modal Global de Transcrição por Foto
   document.getElementById('btn-open-ocr-global').addEventListener('click', () => {
     document.getElementById('modal-ocr-global').classList.remove('hidden');
   });
@@ -935,7 +1015,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Submits Financeiro
   document.getElementById('form-avulsa').addEventListener('submit', async e => {
     e.preventDefault();
     try {
@@ -1038,7 +1117,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Submits RH
   document.getElementById('form-colaborador').addEventListener('submit', async e => {
     e.preventDefault();
     try {
@@ -1189,7 +1267,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Submits ADM
   document.getElementById('form-usuario-adm').addEventListener('submit', async e => {
     e.preventDefault();
     try {
