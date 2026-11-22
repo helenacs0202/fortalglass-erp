@@ -1374,3 +1374,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
   checkSession();
 });
+<script src="js/app.js?v=3"></script>
