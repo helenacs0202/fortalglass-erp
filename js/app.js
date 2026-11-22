@@ -12,7 +12,7 @@ const MODULE_INFO = {
   dashboard: { title: 'Visão Geral', subtitle: 'Indicadores financeiros, vencimentos e alertas de NRs' },
   fluxo: { title: 'Fluxo de Caixa', subtitle: 'Extrato consolidado e lançamentos avulsos' },
   receber: { title: 'Contas a Receber', subtitle: 'Serviços comerciais, parcelas e controle de Nota Fiscal' },
-  pagar: { title: 'Contas a Pagar', subtitle: 'Despesas, rateio, leitor de NF e comprovantes no R2' },
+  pagar: { title: 'Contas a Pagar', subtitle: 'Despesas, rateio, transcrição por foto de NF e comprovantes no R2' },
   rh_colaboradores: { title: 'Colaboradores & NRs', subtitle: 'Ficha cadastral, salários, documentos e NRs pré-definidas' },
   rh_folha: { title: 'Vales & Folha de Pagamento', subtitle: 'Adiantamentos, comissões e fechamento mensal' },
   rh_comportamento: { title: 'Comportamento & Produtividade', subtitle: 'Relatórios disciplinares e desempenho da equipe' },
@@ -253,7 +253,6 @@ async function loadFinanceiro() {
     const data = await apiFetch('/api/financeiro');
     STATE.financeiro = data;
 
-    // Preencher selects
     const catSelect = document.getElementById('pagar-categoria');
     catSelect.innerHTML = data.categorias
       .filter(c => c.tipo === 'despesa')
@@ -264,7 +263,6 @@ async function loadFinanceiro() {
     vendSelect.innerHTML = `<option value="">Sem vendedor vinculado</option>` +
       data.vendedores.map(v => `<option value="${v.id}">${v.nome}</option>`).join('');
 
-    // Extrato Fluxo de Caixa
     const extratoBody = document.getElementById('fluxo-extrato-body');
     extratoBody.innerHTML = data.extrato.length === 0
       ? `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhuma movimentação encontrada.</td></tr>`
@@ -281,7 +279,6 @@ async function loadFinanceiro() {
           <td>${item.comprovante_url ? `<a href="${item.comprovante_url}" target="_blank" class="btn-pill btn-outline btn-sm">Ver</a>` : '-'}</td>
         </tr>`).join('');
 
-    // Contas a Receber
     const recBody = document.getElementById('receber-table-body');
     recBody.innerHTML = data.parcelas.length === 0
       ? `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhuma parcela cadastrada.</td></tr>`
@@ -300,7 +297,6 @@ async function loadFinanceiro() {
           </td>
         </tr>`).join('');
 
-    // Contas a Pagar
     const pagBody = document.getElementById('pagar-table-body');
     pagBody.innerHTML = data.contas_pagar.length === 0
       ? `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhuma conta a pagar lançada.</td></tr>`
@@ -364,9 +360,8 @@ async function loadRH() {
     const data = await apiFetch(`/api/rh?mes=${mes}`);
     STATE.rh = data;
 
-    // Preencher selects de colaboradores
     const colabOptions = data.colaboradores
-      .map(c => `<option value="${c.id}">${c.nome} (${c.cargo})</option>`)
+      .map(c => `<option value="${c.id}">${c.nome} (${c.cargo || 'Colaborador'})</option>`)
       .join('');
 
     ['doc-colaborador', 'vale-colaborador', 'ocorr-colaborador', 'prod-colaborador', 'cert-colaborador'].forEach(id => {
@@ -379,28 +374,25 @@ async function loadRH() {
       filtroOcorr.innerHTML = `<option value="">Todos os Colaboradores</option>` + colabOptions;
     }
 
-    // Preencher NRs pré-definidas
     const nrOptions = data.catalogo_nrs
       .map(n => `<option value="${n.id}">${n.codigo} - ${n.nome} (${n.validade_meses}m)</option>`)
       .join('');
     document.getElementById('doc-nr-select').innerHTML = `<option value="">Documento Geral (Sem NR)</option>` + nrOptions;
     document.getElementById('cert-nr-select').innerHTML = `<option value="">Treinamento Personalizado</option>` + nrOptions;
 
-    // Tabela Colaboradores
     document.getElementById('colab-table-body').innerHTML = data.colaboradores.length === 0
       ? `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum colaborador cadastrado.</td></tr>`
       : data.colaboradores.map(c => `
         <tr>
           <td><strong>${c.nome}</strong></td>
           <td>${c.cpf || '-'}</td>
-          <td>${c.cargo} · <span class="status-pill pill-teal">${c.setor}</span></td>
+          <td>${c.cargo || '-'} · <span class="status-pill pill-teal">${c.setor || 'geral'}</span></td>
           <td style="font-weight:600;">${formatBRL(c.salario_base)}</td>
           <td>${c.chave_pix || '-'}</td>
           <td><span class="status-pill ${c.status === 'ativo' ? 'pill-green' : 'pill-amber'}">${c.status}</span></td>
           <td><button class="btn-pill btn-outline btn-sm" onclick="editarColaborador('${c.id}')">Editar</button></td>
         </tr>`).join('');
 
-    // Tabela Documentos & NRs
     document.getElementById('docs-table-body').innerHTML = data.documentos.length === 0
       ? `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum documento ou NR registrado.</td></tr>`
       : data.documentos.map(d => {
@@ -420,12 +412,11 @@ async function loadRH() {
           </tr>`;
       }).join('');
 
-    // Tabela Folha de Pagamento
     document.getElementById('folha-table-body').innerHTML = data.folha.length === 0
       ? `<tr><td colspan="8" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum colaborador ativo para fechamento.</td></tr>`
       : data.folha.map(f => `
         <tr>
-          <td><strong>${f.nome}</strong><br><small style="color:var(--text-muted);">${f.cargo} ${f.chave_pix ? '· PIX: ' + f.chave_pix : ''}</small></td>
+          <td><strong>${f.nome}</strong><br><small style="color:var(--text-muted);">${f.cargo || ''} ${f.chave_pix ? '· PIX: ' + f.chave_pix : ''}</small></td>
           <td>${formatBRL(f.salario_base)}</td>
           <td class="text-success">+ ${formatBRL(f.total_comissoes)}</td>
           <td class="text-success">+ ${formatBRL(f.total_bonus)}</td>
@@ -439,7 +430,6 @@ async function loadRH() {
           </td>
         </tr>`).join('');
 
-    // Tabela Vales
     document.getElementById('vales-table-body').innerHTML = data.vales.length === 0
       ? `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum vale ou bônus neste mês.</td></tr>`
       : data.vales.map(v => `
@@ -454,13 +444,12 @@ async function loadRH() {
 
     renderOcorrenciasTable(data.ocorrencias);
 
-    // Ranking Produtividade
     document.getElementById('prod-ranking-body').innerHTML = data.ranking_produtividade.length === 0
       ? `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-muted);">Sem apontamentos no mês.</td></tr>`
       : data.ranking_produtividade.map(r => `
         <tr>
           <td><strong>${r.nome}</strong></td>
-          <td><span class="status-pill pill-teal">${r.setor}</span></td>
+          <td><span class="status-pill pill-teal">${r.setor || 'geral'}</span></td>
           <td style="font-weight:700; color:var(--primary);">${r.total_m2.toFixed(2)} m²</td>
           <td>${r.total_pecas} pçs</td>
           <td>${r.total_horas}h</td>
@@ -468,7 +457,6 @@ async function loadRH() {
           <td><span class="status-pill pill-green">${r.media_qualidade} / 5</span></td>
         </tr>`).join('');
 
-    // Certificados Emitidos
     document.getElementById('cert-table-body').innerHTML = data.certificados.length === 0
       ? `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum certificado emitido ainda.</td></tr>`
       : data.certificados.map(cert => `
@@ -640,7 +628,7 @@ function resetFormUsuarioAdm() {
   document.getElementById('adm-user-id').value = '';
 }
 
-/* ================= LEITOR / TRANSCRIÇÃO DE NF E DOCUMENTOS + UPLOAD R2 ================= */
+/* ================= TRANSCRIÇÃO DE FOTO DE NF / DOCUMENTOS + UPLOAD R2 ================= */
 async function uploadArquivoR2(file, pasta) {
   const formData = new FormData();
   formData.append('file', file);
@@ -649,10 +637,33 @@ async function uploadArquivoR2(file, pasta) {
   return res.url;
 }
 
-async function extrairTextoArquivo(file) {
+function prepararImagemParaOcr(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = img.width < 1600 ? Math.min(2.2, 1800 / img.width) : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.filter = 'grayscale(100%) contrast(145%) brightness(105%)';
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(blob => resolve(blob || file), 'image/png');
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+    img.src = url;
+  });
+}
+
+async function extrairTextoArquivo(file, onProgress) {
   const name = file.name.toLowerCase();
 
-  // 1. XML NF-e Brasileiro
+  // 1. Se for XML NF-e
   if (name.endsWith('.xml')) {
     const xmlText = await file.text();
     const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
@@ -672,7 +683,7 @@ async function extrairTextoArquivo(file) {
     };
   }
 
-  // 2. PDF via PDF.js
+  // 2. Se for PDF
   let rawText = '';
   if (name.endsWith('.pdf') && window.pdfjsLib) {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -680,55 +691,96 @@ async function extrairTextoArquivo(file) {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     for (let i = 1; i <= Math.min(pdf.numPages, 3); i++) {
+      if (onProgress) onProgress(`Lendo página ${i} do PDF...`);
       const page = await pdf.getPage(i);
       const content = await page.getTextContent();
       rawText += content.items.map(item => item.str).join(' ') + '\n';
     }
   } else if (file.type.startsWith('image/') && window.Tesseract) {
-    // 3. Foto / Imagem via Tesseract OCR
-    const result = await Tesseract.recognize(file, 'por');
+    // 3. Foto / Print de NF com pré-processamento de nitidez
+    if (onProgress) onProgress('Melhorando nitidez da imagem...');
+    const imagemNitida = await prepararImagemParaOcr(file);
+    const result = await Tesseract.recognize(imagemNitida, 'por', {
+      logger: m => {
+        if (m.status === 'recognizing text' && onProgress) {
+          onProgress(`Transcrevendo imagem da NF... ${Math.round((m.progress || 0) * 100)}%`);
+        }
+      }
+    });
     rawText = result.data.text || '';
   } else {
     rawText = await file.text().catch(() => '');
   }
 
-  return parseTextoLivre(rawText);
+  return parseTextoNotaFiscal(rawText);
 }
 
-function parseTextoLivre(text) {
-  const cnpjMatch = text.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
-  const cpfMatch = text.match(/\d{3}\.\d{3}\.\d{3}-\d{2}/);
-  const nfMatch = text.match(/(?:NF-e|NOTA FISCAL|N[º°o]\.?)\s*[:\-]?\s*(\d{1,9})/i);
-  const valorMatches = [...text.matchAll(/(?:R\$|TOTAL|VALOR)\s*[:\-]?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/gi)];
-  const dataMatch = text.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+function parseTextoNotaFiscal(text) {
+  const cleanText = text.replace(/\r/g, '');
 
+  // Chave de acesso de 44 dígitos (extrai também o nº da NF posições 25..34)
+  const chaveMatch = cleanText.replace(/\s+/g, '').match(/\d{44}/);
+  let nfFromChave = '';
+  if (chaveMatch) {
+    nfFromChave = String(parseInt(chaveMatch[0].slice(25, 34), 10) || '');
+  }
+
+  const cnpjMatch = cleanText.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
+  const cpfMatch = cleanText.match(/\d{3}\.\d{3}\.\d{3}-\d{2}/);
+
+  const nfMatch = cleanText.match(/(?:NF-e|NFE|NOTA FISCAL|N[º°o]\.?)\s*[:\-]?\s*0*(\d{1,9})/i);
+  const numeroNf = (nfMatch && nfMatch[1]) ? nfMatch[1] : nfFromChave;
+
+  // Busca valor próximo a TOTAL ou pega o maior valor em R$ da nota
+  const totalEspecifico = cleanText.match(/(?:VALOR\s+TOTAL\s+DA\s+NOTA|VALOR\s+TOTAL|TOTAL\s+GERAL|VALOR\s+L[ÍI]QUIDO|TOTAL\s+R\$)\s*[:\-]?\s*R?\$?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i);
   let valorNum = '';
-  if (valorMatches.length > 0) {
-    const last = valorMatches[valorMatches.length - 1][1];
-    valorNum = last.replace(/\./g, '').replace(',', '.');
+  if (totalEspecifico) {
+    valorNum = totalEspecifico[1].replace(/\./g, '').replace(',', '.');
+  } else {
+    const todosValores = [...cleanText.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)]
+      .map(m => parseFloat(m[1].replace(/\./g, '').replace(',', '.')))
+      .filter(n => !isNaN(n) && n > 0 && n < 10000000);
+    if (todosValores.length > 0) {
+      valorNum = Math.max(...todosValores).toFixed(2);
+    }
   }
 
+  // Busca data de vencimento ou emissão
+  const vencMatch = cleanText.match(/(?:VENCIMENTO|VENC\.?)\s*[:\-]?\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+  const anyDateMatch = cleanText.match(/(\d{2})\/(\d{2})\/(20\d{2})/);
   let dataIso = '';
-  if (dataMatch) {
-    dataIso = `${dataMatch[3]}-${dataMatch[2]}-${dataMatch[1]}`;
+  if (vencMatch) {
+    dataIso = `${vencMatch[3]}-${vencMatch[2]}-${vencMatch[1]}`;
+  } else if (anyDateMatch) {
+    dataIso = `${anyDateMatch[3]}-${anyDateMatch[2]}-${anyDateMatch[1]}`;
   }
 
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 4);
+  // Busca razão social ignorando cabeçalhos padrão de DANFE
+  const lines = cleanText
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 4 && !/^(DANFE|DOCUMENTO AUXILIAR|CHAVE DE ACESSO|CONSULTA DE AUTENTICIDADE|RECEBEMOS DE)/i.test(l));
+
+  const empresaLine = lines.find(l => /(LTDA|S\/A|S\.A|EIRELI|ME\b|EPP\b|VIDROS|DISTRIBUIDORA|COMERCIO|INDUSTRIA)/i.test(l));
 
   return {
-    nome: lines[0] ? lines[0].slice(0, 80) : '',
+    nome: (empresaLine || lines[0] || '').slice(0, 90),
     doc: cnpjMatch ? cnpjMatch[0] : (cpfMatch ? cpfMatch[0] : ''),
-    nf: nfMatch ? nfMatch[1] : '',
+    nf: numeroNf,
     valor: valorNum,
     data: dataIso,
-    texto: text.trim()
+    texto: cleanText.trim()
   };
 }
 
 function aplicarOcrEmContasPagar() {
   document.getElementById('pagar-fornecedor').value = document.getElementById('ocr-res-nome').value;
   document.getElementById('pagar-cnpj').value = document.getElementById('ocr-res-doc').value;
-  document.getElementById('pagar-nf').value = document.getElementById('ocr-res-nf').value;
+  const nf = document.getElementById('ocr-res-nf').value;
+  document.getElementById('pagar-nf').value = nf;
+  if (nf && !document.getElementById('pagar-descricao').value) {
+    document.getElementById('pagar-descricao').value = `Nota Fiscal Nº ${nf}`;
+  }
   document.getElementById('pagar-valor').value = document.getElementById('ocr-res-valor').value;
   document.getElementById('pagar-vencimento').value = document.getElementById('ocr-res-data').value;
   if (STATE.ocrLastUploadUrl) {
@@ -736,6 +788,22 @@ function aplicarOcrEmContasPagar() {
   }
   fecharModal('modal-ocr-global');
   switchModule('pagar');
+}
+
+function aplicarOcrEmContasReceber() {
+  document.getElementById('serv-cliente').value = document.getElementById('ocr-res-nome').value;
+  const nf = document.getElementById('ocr-res-nf').value;
+  document.getElementById('serv-nf').value = nf;
+  if (nf) {
+    document.getElementById('serv-tipo-cobranca').value = 'mediante_nf';
+    if (!document.getElementById('serv-descricao').value) {
+      document.getElementById('serv-descricao').value = `Serviço ref. NF Nº ${nf}`;
+    }
+  }
+  document.getElementById('serv-valor').value = document.getElementById('ocr-res-valor').value;
+  document.getElementById('serv-primeiro-venc').value = document.getElementById('ocr-res-data').value;
+  fecharModal('modal-ocr-global');
+  switchModule('receber');
 }
 
 function aplicarOcrEmColaborador() {
@@ -755,7 +823,6 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => switchModule(btn.dataset.module));
   });
 
-  // Sub-abas Comportamento / Produtividade
   document.querySelectorAll('[data-rhtab]').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('[data-rhtab]').forEach(b => b.classList.remove('active'));
@@ -766,7 +833,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Auto-preenchimento ao selecionar NR pré-definida
   document.getElementById('doc-nr-select').addEventListener('change', e => {
     const nr = STATE.rh?.catalogo_nrs.find(n => n.id === e.target.value);
     if (!nr) return;
@@ -792,16 +858,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('rh-mes-filtro').addEventListener('change', loadRH);
 
-  // Leitor de NF direto em Contas a Pagar
+  // Leitor por Foto de NF direto em Contas a Pagar
   document.getElementById('pagar-file-ocr').addEventListener('change', async e => {
     const file = e.target.files[0];
     if (!file) return;
     const statusEl = document.getElementById('pagar-ocr-status');
-    statusEl.textContent = 'Lendo documento e salvando anexo...';
+    const previewEl = document.getElementById('pagar-ocr-preview');
+
+    if (file.type.startsWith('image/')) {
+      previewEl.src = URL.createObjectURL(file);
+      previewEl.classList.remove('hidden');
+    } else {
+      previewEl.classList.add('hidden');
+    }
+
+    statusEl.textContent = 'Iniciando leitura da imagem da NF...';
 
     try {
       const [parsed, uploadedUrl] = await Promise.all([
-        extrairTextoArquivo(file),
+        extrairTextoArquivo(file, msg => { statusEl.textContent = msg; }),
         uploadArquivoR2(file, 'contas-pagar').catch(() => null)
       ]);
 
@@ -817,13 +892,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (parsed.data) document.getElementById('pagar-vencimento').value = parsed.data;
       if (uploadedUrl) document.getElementById('pagar-comprovante-url').value = uploadedUrl;
 
-      statusEl.textContent = 'Dados extraídos e anexo salvo!';
+      statusEl.textContent = 'NF transcrita e imagem anexada com sucesso!';
     } catch (err) {
       statusEl.textContent = 'Erro na leitura: ' + err.message;
     }
   });
 
-  // Modal Global de Transcrição de Documentos
+  // Modal Global de Transcrição por Foto
   document.getElementById('btn-open-ocr-global').addEventListener('click', () => {
     document.getElementById('modal-ocr-global').classList.remove('hidden');
   });
@@ -832,10 +907,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const file = e.target.files[0];
     if (!file) return;
     const status = document.getElementById('global-ocr-status');
-    status.textContent = 'Processando transcrição e enviando ao R2...';
+    const preview = document.getElementById('global-ocr-preview');
+
+    if (file.type.startsWith('image/')) {
+      preview.src = URL.createObjectURL(file);
+      preview.classList.remove('hidden');
+    } else {
+      preview.classList.add('hidden');
+    }
+
+    status.textContent = 'Iniciando transcrição da imagem...';
     try {
       const [parsed, url] = await Promise.all([
-        extrairTextoArquivo(file),
+        extrairTextoArquivo(file, msg => { status.textContent = msg; }),
         uploadArquivoR2(file, 'documentos-ocr').catch(() => null)
       ]);
       STATE.ocrLastUploadUrl = url;
@@ -845,7 +929,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('ocr-res-valor').value = parsed.valor;
       document.getElementById('ocr-res-data').value = parsed.data;
       document.getElementById('ocr-res-texto').value = parsed.texto;
-      status.textContent = 'Transcrição concluída!';
+      status.textContent = 'Transcrição concluída! Confira e clique no botão abaixo para preencher.';
     } catch (err) {
       status.textContent = 'Erro: ' + err.message;
     }
@@ -947,6 +1031,7 @@ document.addEventListener('DOMContentLoaded', () => {
       e.target.reset();
       document.getElementById('pagar-comprovante-url').value = '';
       document.getElementById('pagar-ocr-status').textContent = '';
+      document.getElementById('pagar-ocr-preview').classList.add('hidden');
       loadFinanceiro();
     } catch (err) {
       alert(err.message);
