@@ -5,11 +5,13 @@ const STATE = {
   financeiro: null,
   rh: null,
   admin: null,
+  sst: null,
+  sstPendenciasCache: [],
   ocrLastUploadUrl: null
 };
 
 const MODULE_INFO = {
-  dashboard: { title: 'Visão Geral', subtitle: 'Indicadores financeiros, vencimentos e alertas de NRs' },
+  dashboard: { title: 'Visão Geral', subtitle: 'Indicadores financeiros, vencimentos, ASOs e alertas de NRs' },
   fluxo: { title: 'Fluxo de Caixa', subtitle: 'Extrato consolidado e lançamentos avulsos' },
   receber: { title: 'Contas a Receber', subtitle: 'Serviços comerciais, parcelas e controle de Nota Fiscal' },
   pagar: { title: 'Contas a Pagar', subtitle: 'Despesas, rateio, transcrição por foto de NF e comprovantes no R2' },
@@ -17,7 +19,9 @@ const MODULE_INFO = {
   rh_folha: { title: 'Vales & Folha de Pagamento', subtitle: 'Adiantamentos, comissões e fechamento mensal' },
   rh_comportamento: { title: 'Comportamento & Produtividade', subtitle: 'Relatórios disciplinares e desempenho da equipe' },
   certificados: { title: 'Gerador de Certificados', subtitle: 'Emissão oficial de certificados de NRs e treinamentos' },
-  admin_acessos: { title: 'Acessos & Configurações (ADM)', subtitle: 'Hierarquia de usuários, saldo inicial e categorias' }
+  sst: { title: 'SST: ASOs & Treinamentos', subtitle: 'Exames ocupacionais (PCMSO), matriz de NRs obrigatórias e prontuário digital' },
+  acervo: { title: 'Acervo Digital (Papel)', subtitle: 'Digitalização em lote com leitura OCR automática e busca inteligente' },
+  admin_acessos: { title: 'Acessos & Configurações (ADM)', subtitle: 'Hierarquia de usuários, normas, matriz SST, saldo inicial e categorias' }
 };
 
 function formatBRL(val) {
@@ -149,15 +153,21 @@ function switchModule(moduleKey) {
   if (moduleKey === 'dashboard') loadDashboard();
   if (moduleKey === 'fluxo' || moduleKey === 'receber' || moduleKey === 'pagar') loadFinanceiro();
   if (moduleKey.startsWith('rh_') || moduleKey === 'certificados') loadRH();
-  if (moduleKey === 'admin_acessos') loadAdmin();
+  if (moduleKey === 'sst') loadSST();
+  if (moduleKey === 'acervo') loadAcervo();
+  if (moduleKey === 'admin_acessos') {
+    loadAdmin();
+    loadSST();
+  }
 }
 
 /* ================= DASHBOARD ================= */
 async function loadDashboard() {
   try {
-    const [dash, rhAlertas] = await Promise.all([
+    const [dash, rhAlertas, sstAlertas] = await Promise.all([
       apiFetch('/api/dashboard'),
-      apiFetch('/api/rh?resumo_alertas=1').catch(() => ({ nrs_alerta: [] }))
+      apiFetch('/api/rh?resumo_alertas=1').catch(() => ({ nrs_alerta: [] })),
+      apiFetch('/api/sst?action=resumo_alertas').catch(() => ({ asos_pendentes: [] }))
     ]);
 
     const { kpis, alertas, fluxo_mensal, maiores_categorias, atividades_recentes } = dash;
@@ -185,12 +195,19 @@ async function loadDashboard() {
     if (alertas.nf_pendente_qtd > 0) {
       alertContainer.innerHTML += `<div class="alert-banner alert-info"><span><strong>Faturamento Pendente:</strong> ${alertas.nf_pendente_qtd} parcela(s) aguardando emissão de NF (${formatBRL(alertas.nf_pendente_valor)}).</span></div>`;
     }
+    if (sstAlertas.asos_pendentes && sstAlertas.asos_pendentes.length > 0) {
+      const listaAsos = sstAlertas.asos_pendentes
+        .slice(0, 3)
+        .map(a => `${a.colaborador_nome} (${a.motivo})`)
+        .join('; ');
+      alertContainer.innerHTML += `<div class="alert-banner alert-danger" style="cursor:pointer;" onclick="switchModule('sst')"><span><strong>Alerta SST (ASOs):</strong> ${sstAlertas.asos_pendentes.length} exame(s) a fazer ou vencido(s): ${listaAsos}.</span></div>`;
+    }
     if (rhAlertas.nrs_alerta && rhAlertas.nrs_alerta.length > 0) {
       const lista = rhAlertas.nrs_alerta
         .slice(0, 3)
         .map(n => `${n.colaborador_nome} (${n.codigo_nr || n.titulo} · ${formatDateBR(n.data_validade)})`)
         .join(', ');
-      alertContainer.innerHTML += `<div class="alert-banner alert-warning"><span><strong>Alerta de NRs / Documentos RH:</strong> ${rhAlertas.nrs_alerta.length} vencido(s) ou vencendo em 30 dias: ${lista}.</span></div>`;
+      alertContainer.innerHTML += `<div class="alert-banner alert-warning" style="cursor:pointer;" onclick="switchModule('sst')"><span><strong>Alerta de NRs / Treinamentos:</strong> ${rhAlertas.nrs_alerta.length} vencido(s) ou vencendo em 30 dias: ${lista}.</span></div>`;
     }
 
     renderDashboardCharts(fluxo_mensal, maiores_categorias);
@@ -574,6 +591,435 @@ function preencherModalCertificado(cert) {
   document.getElementById('cert-view-codigo').textContent = cert.codigo_validacao;
 }
 
+/* ================= SST: ASOs, MATRIZ DE TREINAMENTOS & PRONTUÁRIO DIGITAL ================= */
+async function loadSST() {
+  try {
+    const mes = new Date().toISOString().slice(0, 7);
+    const [sstData, rhData] = await Promise.all([
+      apiFetch('/api/sst?action=overview'),
+      apiFetch(`/api/rh?mes=${mes}`).catch(() => ({ documentos: [] }))
+    ]);
+    STATE.sst = sstData;
+    const docsRh = rhData.documentos || [];
+
+    const colabOpts = sstData.colaboradores
+      .map(c => `<option value="${c.id}">${c.nome} (${c.setor || 'geral'})</option>`)
+      .join('');
+    const asoColabEl = document.getElementById('aso-colaborador');
+    if (asoColabEl) asoColabEl.innerHTML = colabOpts || '<option value="">Cadastre um colaborador</option>';
+
+    const nrOpts = sstData.catalogo_nrs
+      .map(n => `<option value="${n.id}" data-val="${n.validade_meses || 12}">${n.codigo} - ${n.nome}</option>`)
+      .join('');
+    const turmaNrEl = document.getElementById('turma-nr-select');
+    if (turmaNrEl) turmaNrEl.innerHTML = nrOpts || '<option value="">Cadastre NRs em Configurações (ADM)</option>';
+
+    const turmaCheckEl = document.getElementById('turma-colabs-checklist');
+    if (turmaCheckEl) {
+      const ativosList = sstData.colaboradores.filter(c => c.status === 'ativo');
+      turmaCheckEl.innerHTML = ativosList.length === 0
+        ? '<small style="color:var(--text-muted);">Nenhum colaborador ativo cadastrado.</small>'
+        : ativosList.map(c => `
+          <label class="perm-item">
+            <input type="checkbox" name="turma-colab-item" value="${c.id}">
+            <span>${c.nome} <small style="color:var(--text-muted);">(${c.setor || 'geral'})</small></span>
+          </label>
+        `).join('');
+    }
+
+    const pendencias = [];
+
+    for (const a of sstData.asos_pendentes) {
+      pendencias.push({
+        colaborador_id: a.colaborador_id,
+        colaborador_nome: a.colaborador_nome,
+        setor: a.setor,
+        tipo: 'ASO (Saúde)',
+        exigencia: a.motivo,
+        situacao: a.situacao,
+        data_validade: a.data_validade
+      });
+    }
+
+    const ativos = sstData.colaboradores.filter(c => c.status === 'ativo');
+    for (const colab of ativos) {
+      const setorColab = (colab.setor || 'geral').toLowerCase();
+      const regrasSetor = sstData.matriz_nrs.filter(
+        m => m.setor.toLowerCase() === setorColab || m.setor.toLowerCase() === 'geral'
+      );
+
+      for (const regra of regrasSetor) {
+        const docsMatch = docsRh.filter(
+          d => d.colaborador_id === colab.id &&
+            (d.nr_id === regra.nr_id || (d.codigo_nr && d.codigo_nr.toLowerCase() === regra.nr_codigo.toLowerCase()))
+        );
+
+        if (docsMatch.length === 0) {
+          pendencias.push({
+            colaborador_id: colab.id,
+            colaborador_nome: colab.nome,
+            setor: colab.setor || 'geral',
+            tipo: 'Treinamento NR',
+            exigencia: `${regra.nr_codigo} - ${regra.nr_nome}`,
+            situacao: 'a_fazer',
+            data_validade: null,
+            nr_id: regra.nr_id
+          });
+        } else {
+          const docRecente = docsMatch[0];
+          pendencias.push({
+            colaborador_id: colab.id,
+            colaborador_nome: colab.nome,
+            setor: colab.setor || 'geral',
+            tipo: 'Treinamento NR',
+            exigencia: `${regra.nr_codigo} - ${regra.nr_nome}`,
+            situacao: docRecente.status_validade || 'valido',
+            data_validade: docRecente.data_validade,
+            nr_id: regra.nr_id
+          });
+        }
+      }
+    }
+
+    STATE.sstPendenciasCache = pendencias;
+
+    const asosCriticos = sstData.asos_pendentes.length;
+    const nrsCriticos = pendencias.filter(p => p.tipo === 'Treinamento NR' && p.situacao !== 'valido').length;
+    const kpiAsosEl = document.getElementById('sst-kpi-asos');
+    const kpiNrsEl = document.getElementById('sst-kpi-nrs');
+    if (kpiAsosEl) kpiAsosEl.textContent = asosCriticos;
+    if (kpiNrsEl) kpiNrsEl.textContent = nrsCriticos;
+
+    renderSstPendencias();
+    renderSstAsosTable(sstData.asos);
+    renderProntuarioChecklist(ativos, sstData.tipos_doc_rh, docsRh);
+    renderAdminAutonomia(sstData);
+  } catch (err) {
+    console.error(err);
+    alert('Erro ao carregar dados de SST: ' + err.message);
+  }
+}
+
+function renderSstPendencias() {
+  const filtro = document.getElementById('sst-filtro-status')?.value || 'pendentes';
+  const lista = filtro === 'pendentes'
+    ? STATE.sstPendenciasCache.filter(p => p.situacao !== 'valido')
+    : STATE.sstPendenciasCache;
+
+  const tbody = document.getElementById('sst-pendencias-body');
+  if (!tbody) return;
+
+  tbody.innerHTML = lista.length === 0
+    ? `<tr><td colspan="7" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhuma pendência encontrada neste filtro.</td></tr>`
+    : lista.map(p => {
+      const badge = p.situacao === 'valido'
+        ? '<span class="status-pill pill-green">Em Dia</span>'
+        : p.situacao === 'vencendo'
+          ? '<span class="status-pill pill-amber">Vencendo (30d)</span>'
+          : p.situacao === 'vencido'
+            ? '<span class="status-pill pill-red">Vencido</span>'
+            : '<span class="status-pill pill-red">A Realizar / Fazer</span>';
+
+      const acaoBtn = p.tipo === 'ASO (Saúde)'
+        ? `<button class="btn-pill btn-primary btn-sm" onclick="prepararAsoRapido('${p.colaborador_id}')">Lançar ASO</button>`
+        : `<button class="btn-pill btn-gold btn-sm" onclick="prepararTreinamentoRapido('${p.colaborador_id}', '${p.nr_id || ''}')">Lançar NR</button>`;
+
+      return `
+        <tr>
+          <td><strong>${p.colaborador_nome}</strong></td>
+          <td><span class="status-pill pill-teal">${p.setor}</span></td>
+          <td>${p.tipo}</td>
+          <td>${p.exigencia}</td>
+          <td>${badge}</td>
+          <td>${formatDateBR(p.data_validade)}</td>
+          <td>${acaoBtn}</td>
+        </tr>`;
+    }).join('');
+}
+
+function prepararAsoRapido(colabId) {
+  document.getElementById('aso-colaborador').value = colabId;
+  const hoje = new Date().toISOString().slice(0, 10);
+  document.getElementById('aso-data-exame').value = hoje;
+  const dtVal = new Date();
+  dtVal.setFullYear(dtVal.getFullYear() + 1);
+  document.getElementById('aso-data-validade').value = dtVal.toISOString().slice(0, 10);
+  document.getElementById('form-sst-aso').scrollIntoView({ behavior: 'smooth' });
+}
+
+function prepararTreinamentoRapido(colabId, nrId) {
+  if (nrId) document.getElementById('turma-nr-select').value = nrId;
+  document.getElementById('turma-data').value = new Date().toISOString().slice(0, 10);
+  document.querySelectorAll('input[name="turma-colab-item"]').forEach(cb => {
+    cb.checked = cb.value === colabId;
+  });
+  document.getElementById('form-sst-turma').scrollIntoView({ behavior: 'smooth' });
+}
+
+function renderSstAsosTable(asos) {
+  const tbody = document.getElementById('sst-asos-body');
+  if (!tbody) return;
+  tbody.innerHTML = asos.length === 0
+    ? `<tr><td colspan="8" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum ASO registrado ainda.</td></tr>`
+    : asos.map(a => {
+      const badge = a.status_validade === 'vencido'
+        ? '<span class="status-pill pill-red">Vencido</span>'
+        : a.status_validade === 'vencendo'
+          ? '<span class="status-pill pill-amber">Vencendo</span>'
+          : '<span class="status-pill pill-green">Válido</span>';
+      return `
+        <tr>
+          <td><strong>${a.colaborador_nome}</strong></td>
+          <td style="text-transform:capitalize;">${a.tipo_exame.replace('_', ' ')}</td>
+          <td style="text-transform:capitalize;">${a.resultado.replace('_', ' ')}</td>
+          <td>${formatDateBR(a.data_exame)}</td>
+          <td>${formatDateBR(a.data_validade)}</td>
+          <td>${badge}</td>
+          <td>${a.arquivo_url ? `<a href="${a.arquivo_url}" target="_blank" class="btn-pill btn-outline btn-sm">Ver ASO</a>` : '-'}</td>
+          <td><button class="btn-pill btn-outline btn-sm" onclick="excluirAso('${a.id}')">Excluir</button></td>
+        </tr>`;
+    }).join('');
+}
+
+async function excluirAso(id) {
+  if (!confirm('Excluir este registro de ASO?')) return;
+  await apiFetch('/api/sst', { method: 'POST', body: JSON.stringify({ action: 'excluir_aso', id }) });
+  loadSST();
+}
+
+function renderProntuarioChecklist(ativos, tiposDoc, docsRh) {
+  const tbody = document.getElementById('sst-prontuario-body');
+  if (!tbody) return;
+
+  if (ativos.length === 0 || tiposDoc.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">Cadastre colaboradores e itens de prontuário.</td></tr>`;
+    return;
+  }
+
+  let somaPct = 0;
+  tbody.innerHTML = ativos.map(c => {
+    const docsColab = docsRh.filter(d => d.colaborador_id === c.id);
+    let feitos = 0;
+    const chips = tiposDoc.map(td => {
+      const ok = docsColab.some(d => d.titulo.toLowerCase().includes(td.nome.toLowerCase().slice(0, 8)));
+      if (ok) feitos++;
+      return `<span class="status-pill ${ok ? 'pill-green' : 'pill-amber'}" style="margin:2px;">${ok ? '✓' : '○'} ${td.nome}</span>`;
+    }).join(' ');
+
+    const pct = Math.round((feitos / tiposDoc.length) * 100);
+    somaPct += pct;
+
+    return `
+      <tr>
+        <td><strong>${c.nome}</strong></td>
+        <td>${chips}</td>
+        <td><strong>${feitos}/${tiposDoc.length}</strong> (${pct}%)</td>
+        <td>
+          <label class="btn-pill btn-outline btn-sm" style="cursor:pointer;">
+            Digitalizar Folha
+            <input type="file" accept="image/*,.pdf" style="display:none;" onchange="digitalizarDocProntuario(event, '${c.id}')">
+          </label>
+        </td>
+      </tr>`;
+  }).join('');
+
+  const pastasEl = document.getElementById('sst-kpi-pastas');
+  if (pastasEl) pastasEl.textContent = `${Math.round(somaPct / ativos.length)}%`;
+}
+
+async function digitalizarDocProntuario(event, colabId) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const tipos = STATE.sst?.tipos_doc_rh || [];
+  const sugestao = tipos.map(t => t.nome).join(' | ');
+  const titulo = prompt(`Qual documento você está digitalizando?\nOpções: ${sugestao}`, tipos[0]?.nome || 'Documento RH');
+  if (!titulo) return;
+
+  try {
+    const url = await uploadArquivoR2(file, 'rh-documentos');
+    await apiFetch('/api/rh', {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'criar_documento',
+        colaborador_id: colabId,
+        tipo_documento: 'documento',
+        titulo: titulo.trim(),
+        data_emissao: new Date().toISOString().slice(0, 10),
+        arquivo_url: url
+      })
+    });
+    alert('Documento digitalizado e anexado ao prontuário!');
+    loadSST();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+/* ================= ACERVO DIGITAL (DIGITALIZAÇÃO DE PAPEL COM OCR EM LOTE) ================= */
+async function loadAcervo() {
+  try {
+    const data = await apiFetch('/api/sst?action=overview');
+    STATE.sst = data;
+
+    const catSelect = document.getElementById('acervo-categoria');
+    const filtroCat = document.getElementById('acervo-filtro-cat');
+    const catOpts = data.categorias_acervo.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+    if (catSelect) catSelect.innerHTML = catOpts;
+    if (filtroCat) filtroCat.innerHTML = `<option value="">Todas as Categorias</option>` + catOpts;
+
+    const colabSel = document.getElementById('acervo-colaborador');
+    if (colabSel) {
+      colabSel.innerHTML = `<option value="">Nenhum (Documento Geral)</option>` +
+        data.colaboradores.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+    }
+
+    renderAcervoTable();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+function renderAcervoTable() {
+  const tbody = document.getElementById('acervo-table-body');
+  if (!tbody || !STATE.sst) return;
+
+  const busca = (document.getElementById('acervo-busca')?.value || '').toLowerCase().trim();
+  const cat = document.getElementById('acervo-filtro-cat')?.value || '';
+
+  const filtrados = STATE.sst.acervo.filter(item => {
+    if (cat && item.categoria !== cat) return false;
+    if (!busca) return true;
+    const blob = `${item.titulo} ${item.categoria} ${item.pasta_fisica || ''} ${item.nome_arquivo || ''} ${item.texto_ocr || ''}`.toLowerCase();
+    return blob.includes(busca);
+  });
+
+  tbody.innerHTML = filtrados.length === 0
+    ? `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum documento digitalizado encontrado.</td></tr>`
+    : filtrados.map(item => `
+      <tr>
+        <td>${formatDateBR(item.data_documento || item.created_at)}</td>
+        <td><strong>${item.titulo}</strong><br><small style="color:var(--text-muted);">${item.nome_arquivo || ''}</small></td>
+        <td><span class="status-pill pill-teal">${item.categoria}</span></td>
+        <td>${item.pasta_fisica || '-'}</td>
+        <td style="max-width:260px;"><small style="color:var(--text-muted);">${(item.texto_ocr || '').slice(0, 95)}${(item.texto_ocr || '').length > 95 ? '...' : ''}</small></td>
+        <td>
+          <a href="${item.arquivo_url}" target="_blank" class="btn-pill btn-primary btn-sm">Abrir</a>
+          <button class="btn-pill btn-outline btn-sm" onclick="excluirItemAcervo('${item.id}')">Excluir</button>
+        </td>
+      </tr>`).join('');
+}
+
+async function excluirItemAcervo(id) {
+  if (!confirm('Remover este documento do Acervo Digital?')) return;
+  await apiFetch('/api/sst', { method: 'POST', body: JSON.stringify({ action: 'excluir_acervo_item', id }) });
+  loadAcervo();
+}
+
+/* ================= AUTONOMIA ADMINISTRATIVA (ADM / GESTORES) ================= */
+function renderAdminAutonomia(sstData) {
+  const nrsBody = document.getElementById('adm-nrs-body');
+  if (nrsBody) {
+    nrsBody.innerHTML = sstData.catalogo_nrs.map(n => `
+      <tr>
+        <td><strong>${n.codigo}</strong></td>
+        <td>${n.nome}</td>
+        <td>${n.validade_meses}m</td>
+        <td>
+          <button class="btn-pill btn-outline btn-sm" onclick="editarAdmNr('${n.id}')">Editar</button>
+          <button class="btn-pill btn-outline btn-sm" onclick="excluirAdmNr('${n.id}')">Excluir</button>
+        </td>
+      </tr>`).join('');
+  }
+
+  const matrizNrSelect = document.getElementById('adm-matriz-nr');
+  if (matrizNrSelect) {
+    matrizNrSelect.innerHTML = sstData.catalogo_nrs
+      .map(n => `<option value="${n.id}">${n.codigo} - ${n.nome}</option>`)
+      .join('');
+  }
+
+  const matrizBody = document.getElementById('adm-matriz-body');
+  if (matrizBody) {
+    matrizBody.innerHTML = sstData.matriz_nrs.length === 0
+      ? `<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">Nenhuma regra cadastrada.</td></tr>`
+      : sstData.matriz_nrs.map(m => `
+        <tr>
+          <td><span class="status-pill pill-teal">${m.setor}</span></td>
+          <td><strong>${m.nr_codigo}</strong> - ${m.nr_nome}</td>
+          <td><button class="btn-pill btn-outline btn-sm" onclick="excluirAdmMatriz('${m.id}')">Remover</button></td>
+        </tr>`).join('');
+  }
+
+  const tipoDocBody = document.getElementById('adm-tipodoc-body');
+  if (tipoDocBody) {
+    tipoDocBody.innerHTML = sstData.tipos_doc_rh.map(t => `
+      <tr>
+        <td>${t.nome}</td>
+        <td>${t.obrigatorio ? 'Obrigatório' : 'Opcional'}</td>
+        <td><button class="btn-pill btn-outline btn-sm" onclick="excluirAdmTipoDoc('${t.id}')">Excluir</button></td>
+      </tr>`).join('');
+  }
+
+  const catAcervoBody = document.getElementById('adm-cat-acervo-body');
+  if (catAcervoBody) {
+    catAcervoBody.innerHTML = sstData.categorias_acervo.map(c => `
+      <tr>
+        <td>${c.nome}</td>
+        <td><button class="btn-pill btn-outline btn-sm" onclick="excluirAdmCatAcervo('${c.id}')">Excluir</button></td>
+      </tr>`).join('');
+  }
+
+  const audBody = document.getElementById('adm-auditoria-body');
+  if (audBody) {
+    audBody.innerHTML = sstData.auditoria.length === 0
+      ? `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Nenhuma alteração registrada ainda.</td></tr>`
+      : sstData.auditoria.map(a => `
+        <tr>
+          <td>${formatDateBR(a.created_at)}</td>
+          <td><strong>${a.usuario_nome}</strong></td>
+          <td>${a.acao}</td>
+          <td>${a.detalhes || '-'}</td>
+        </tr>`).join('');
+  }
+}
+
+function editarAdmNr(id) {
+  const n = STATE.sst?.catalogo_nrs.find(x => x.id === id);
+  if (!n) return;
+  document.getElementById('adm-nr-id').value = n.id;
+  document.getElementById('adm-nr-codigo').value = n.codigo || '';
+  document.getElementById('adm-nr-nome').value = n.nome || '';
+  document.getElementById('adm-nr-validade').value = n.validade_meses || 12;
+  document.getElementById('adm-nr-carga').value = n.carga_horaria_padrao || 8;
+  document.getElementById('adm-nr-conteudo').value = n.conteudo_programatico || '';
+}
+
+function resetFormAdmNr() {
+  document.getElementById('form-adm-nr').reset();
+  document.getElementById('adm-nr-id').value = '';
+}
+
+async function excluirAdmNr(id) {
+  if (!confirm('Excluir esta norma/treinamento do catálogo?')) return;
+  await apiFetch('/api/sst', { method: 'POST', body: JSON.stringify({ action: 'excluir_nr', id }) });
+  loadSST();
+}
+
+async function excluirAdmMatriz(id) {
+  await apiFetch('/api/sst', { method: 'POST', body: JSON.stringify({ action: 'excluir_matriz_nr', id }) });
+  loadSST();
+}
+
+async function excluirAdmTipoDoc(id) {
+  await apiFetch('/api/sst', { method: 'POST', body: JSON.stringify({ action: 'excluir_tipo_doc_rh', id }) });
+  loadSST();
+}
+
+async function excluirAdmCatAcervo(id) {
+  await apiFetch('/api/sst', { method: 'POST', body: JSON.stringify({ action: 'excluir_categoria_acervo', id }) });
+  loadSST();
+}
+
 /* ================= ADMINISTRAÇÃO (ADM) ================= */
 async function loadAdmin() {
   try {
@@ -696,7 +1142,6 @@ function validarChaveNfe44(chave) {
 async function extrairTextoArquivo(file, onProgress) {
   const name = file.name.toLowerCase();
 
-  // 1. XML NF-e
   if (name.endsWith('.xml')) {
     const xmlText = await file.text();
     const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
@@ -716,7 +1161,6 @@ async function extrairTextoArquivo(file, onProgress) {
     };
   }
 
-  // 2. PDF
   let rawText = '';
   if (name.endsWith('.pdf') && window.pdfjsLib) {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -732,7 +1176,6 @@ async function extrairTextoArquivo(file, onProgress) {
     return parseTextoNotaFiscal(rawText, rawText);
   }
 
-  // 3. Imagem / Foto de DANFE (2 passes: Cabeçalho ampliado + Página completa)
   if (file.type.startsWith('image/') && window.Tesseract) {
     if (onProgress) onProgress('Ampliando cabeçalho da Nota Fiscal...');
     const img = await carregarImagem(file);
@@ -742,7 +1185,7 @@ async function extrairTextoArquivo(file, onProgress) {
     const resTop = await Tesseract.recognize(topBlob, 'por', {
       logger: m => {
         if (m.status === 'recognizing text' && onProgress) {
-          onProgress(`Lendo dados principais da NF... ${Math.round((m.progress || 0) * 100)}%`);
+          onProgress(`Lendo dados principais... ${Math.round((m.progress || 0) * 100)}%`);
         }
       }
     });
@@ -750,7 +1193,7 @@ async function extrairTextoArquivo(file, onProgress) {
     const resFull = await Tesseract.recognize(fullBlob, 'por', {
       logger: m => {
         if (m.status === 'recognizing text' && onProgress) {
-          onProgress(`Conferindo itens e totais... ${Math.round((m.progress || 0) * 100)}%`);
+          onProgress(`Conferindo página completa... ${Math.round((m.progress || 0) * 100)}%`);
         }
       }
     });
@@ -770,7 +1213,6 @@ function parseTextoNotaFiscal(topText, fullText) {
   const cleanTop = (topText || '').replace(/\r/g, '');
   const cleanFull = (fullText || topText || '').replace(/\r/g, '');
 
-  // 1. Chave de acesso de 44 dígitos VALIDADA matematicamente (Módulo-11)
   let nfFromChave = '';
   let cnpjFromChave = '';
   const digitsLines = cleanTop.split('\n').map(l => l.replace(/\D/g, ''));
@@ -789,7 +1231,6 @@ function parseTextoNotaFiscal(topText, fullText) {
     if (nfFromChave) break;
   }
 
-  // 2. Número da NF direto do cabeçalho superior (ex: Nº. 108, Nº 000.000.005, Nº 000555)
   const nfRegexList = [
     /N[º°o]\.?\s*[:\-]?\s*0*([\d\.]{1,11})/i,
     /(?:NF-e|NFE|DANFE)[\s\S]{0,35}?N[º°o]\.?\s*[:\-]?\s*0*([\d\.]{1,11})/i
@@ -807,7 +1248,6 @@ function parseTextoNotaFiscal(topText, fullText) {
   }
   const numeroNf = nfFromChave || nfFromHeader;
 
-  // 3. Emitente / Fornecedor: prioriza o canhoto "RECEBEMOS DE <EMPRESA> OS PRODUTOS"
   let emitente = '';
   const canhotoMatch = cleanTop.match(/RECEBEMOS\s+DE\s+([A-Z0-9À-Ú\s\.\-\/&]+?)\s+(?:OS\s+PRODUTOS|A\(S\)|AS\s+MERCADORIAS|CONSTANTES)/i);
   if (canhotoMatch && canhotoMatch[1]) {
@@ -828,14 +1268,12 @@ function parseTextoNotaFiscal(topText, fullText) {
     emitente = (empresaLine || lines[0] || '').slice(0, 90);
   }
 
-  // 4. CNPJ do Emitente (antes de DESTINATÁRIO no topo, ou validado pela Chave)
   const beforeDestTop = cleanTop.split(/DESTINAT[ÁA]RIO/i)[0] || cleanTop;
   const cnpjTopBeforeDest = beforeDestTop.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/)?.[0] || '';
   const cnpjAnyTop = cleanTop.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/)?.[0] || '';
   const cpfMatch = cleanTop.match(/\d{3}\.\d{3}\.\d{3}-\d{2}/)?.[0] || '';
   const docFinal = cnpjFromChave || cnpjTopBeforeDest || cnpjAnyTop || cpfMatch;
 
-  // 5. Valor Total da Nota (remove CNPJs/CPFs antes e pega o último valor da linha de VALOR TOTAL DA NOTA)
   const textSemDocs = cleanFull
     .replace(/\d{2}[.,]\d{3}[.,]\d{3}\/\d{4}-\d{2}/g, ' ')
     .replace(/\d{3}[.,]\d{3}[.,]\d{3}-\d{2}/g, ' ');
@@ -853,18 +1291,6 @@ function parseTextoNotaFiscal(topText, fullText) {
   }
 
   if (!valorNum) {
-    const blocoTotalProd = textSemDocs.match(/VALOR\s+TOTAL\s+DOS\s+PRODUTOS([\s\S]{0,140}?)(?:VALOR\s+DO\s+FRETE|TRANSPORTADOR|$)/i);
-    if (blocoTotalProd && blocoTotalProd[1]) {
-      const numsProd = [...blocoTotalProd[1].matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)]
-        .map(m => parseFloat(m[1].replace(/\./g, '').replace(',', '.')))
-        .filter(n => !isNaN(n) && n > 0);
-      if (numsProd.length > 0) {
-        valorNum = numsProd[numsProd.length - 1].toFixed(2);
-      }
-    }
-  }
-
-  if (!valorNum) {
     const todosValores = [...textSemDocs.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)]
       .map(m => parseFloat(m[1].replace(/\./g, '').replace(',', '.')))
       .filter(n => !isNaN(n) && n > 0 && n < 10000000);
@@ -873,7 +1299,6 @@ function parseTextoNotaFiscal(topText, fullText) {
     }
   }
 
-  // 6. Data (prioriza Vencimento de Fatura/Duplicata, depois Data de Emissão)
   let dataIso = '';
   const faturaSection = cleanFull.match(/FATURAS?[\s\S]{0,260}/i)?.[0] || '';
   const vencFaturaMatch = faturaSection.match(/(\d{2})\/(\d{2})\/(20\d{2})/);
@@ -1199,179 +1624,4 @@ document.addEventListener('DOMContentLoaded', () => {
         body: JSON.stringify({
           action: 'criar_documento',
           colaborador_id: document.getElementById('doc-colaborador').value,
-          nr_id: document.getElementById('doc-nr-select').value || null,
-          tipo_documento: document.getElementById('doc-nr-select').value ? 'nr' : 'documento',
-          titulo: document.getElementById('doc-titulo').value,
-          data_emissao: document.getElementById('doc-emissao').value || null,
-          data_validade: document.getElementById('doc-validade').value || null,
-          arquivo_url: fileUrl
-        })
-      });
-      e.target.reset();
-      loadRH();
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-
-  document.getElementById('form-vale').addEventListener('submit', async e => {
-    e.preventDefault();
-    try {
-      await apiFetch('/api/rh', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'criar_vale',
-          colaborador_id: document.getElementById('vale-colaborador').value,
-          tipo: document.getElementById('vale-tipo').value,
-          descricao: document.getElementById('vale-descricao').value,
-          valor: document.getElementById('vale-valor').value,
-          mes_referencia: document.getElementById('rh-mes-filtro').value
-        })
-      });
-      e.target.reset();
-      loadRH();
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-
-  document.getElementById('form-ocorrencia').addEventListener('submit', async e => {
-    e.preventDefault();
-    try {
-      await apiFetch('/api/rh', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'criar_ocorrencia',
-          colaborador_id: document.getElementById('ocorr-colaborador').value,
-          tipo: document.getElementById('ocorr-tipo').value,
-          classificacao: document.getElementById('ocorr-classificacao').value,
-          data_ocorrencia: document.getElementById('ocorr-data').value,
-          descricao: document.getElementById('ocorr-descricao').value
-        })
-      });
-      e.target.reset();
-      loadRH();
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-
-  document.getElementById('form-produtividade').addEventListener('submit', async e => {
-    e.preventDefault();
-    try {
-      await apiFetch('/api/rh', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'criar_produtividade',
-          colaborador_id: document.getElementById('prod-colaborador').value,
-          etapa_producao: document.getElementById('prod-etapa').value,
-          quantidade_pecas: document.getElementById('prod-pecas').value,
-          metragem_m2: document.getElementById('prod-m2').value,
-          horas_trabalhadas: document.getElementById('prod-horas').value,
-          retrabalho_qtd: document.getElementById('prod-retrabalho').value,
-          nota_qualidade: document.getElementById('prod-nota').value
-        })
-      });
-      e.target.reset();
-      loadRH();
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-
-  document.getElementById('form-certificado').addEventListener('submit', async e => {
-    e.preventDefault();
-    try {
-      const res = await apiFetch('/api/rh', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'gerar_certificado',
-          colaborador_id: document.getElementById('cert-colaborador').value,
-          nr_id: document.getElementById('cert-nr-select').value || null,
-          titulo_curso: document.getElementById('cert-titulo').value,
-          carga_horaria: document.getElementById('cert-carga').value,
-          data_conclusao: document.getElementById('cert-data').value,
-          validade_meses: document.getElementById('cert-validade-meses').value,
-          instrutor_nome: document.getElementById('cert-instrutor').value,
-          instrutor_registro: document.getElementById('cert-registro').value,
-          conteudo_programatico: document.getElementById('cert-conteudo').value
-        })
-      });
-      e.target.reset();
-      await loadRH();
-      if (res.certificado) {
-        preencherModalCertificado(res.certificado);
-        document.getElementById('modal-certificado').classList.remove('hidden');
-      }
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-
-  document.getElementById('form-usuario-adm').addEventListener('submit', async e => {
-    e.preventDefault();
-    try {
-      await apiFetch('/api/admin', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'salvar_usuario',
-          id: document.getElementById('adm-user-id').value || null,
-          nome: document.getElementById('adm-user-nome').value,
-          email: document.getElementById('adm-user-login').value,
-          senha: document.getElementById('adm-user-senha').value,
-          setor: document.getElementById('adm-user-setor').value,
-          permissoes: {
-            financeiro: document.getElementById('perm-financeiro').checked,
-            administrativo: document.getElementById('perm-administrativo').checked,
-            rh: document.getElementById('perm-rh').checked,
-            vendas: document.getElementById('perm-vendas').checked,
-            producao: document.getElementById('perm-producao').checked,
-            admin: document.getElementById('perm-admin').checked
-          }
-        })
-      });
-      resetFormUsuarioAdm();
-      loadAdmin();
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-
-  document.getElementById('form-saldo-inicial').addEventListener('submit', async e => {
-    e.preventDefault();
-    try {
-      await apiFetch('/api/financeiro', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'salvar_saldo_inicial',
-          saldo_inicial: document.getElementById('cfg-saldo-inicial').value
-        })
-      });
-      alert('Saldo inicial atualizado com sucesso!');
-      loadDashboard();
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-
-  document.getElementById('form-categoria').addEventListener('submit', async e => {
-    e.preventDefault();
-    try {
-      await apiFetch('/api/admin', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'criar_categoria',
-          nome: document.getElementById('cat-nome').value,
-          cor_hex: document.getElementById('cat-cor').value
-        })
-      });
-      e.target.reset();
-      alert('Categoria criada!');
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-
-  checkSession();
-});
-<script src="js/app.js?v=3"></script>
+          nr_id: document.getElement
