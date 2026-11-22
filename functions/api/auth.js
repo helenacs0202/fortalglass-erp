@@ -15,12 +15,12 @@ export async function onRequestPost({ request, env }) {
     const senha = (body.senha || '').trim();
 
     if (!email || !senha) {
-      return json({ error: 'Informe e-mail e senha.' }, 400);
+      return json({ error: 'Informe login e senha.' }, 400);
     }
 
     const sql = getSql(env);
     const rows = await sql`
-      SELECT id, nome, email, senha_hash, perfil, ativo
+      SELECT id, nome, email, senha_hash, perfil, ativo, setor, permissoes
       FROM usuarios
       WHERE LOWER(email) = ${email}
       LIMIT 1
@@ -39,11 +39,17 @@ export async function onRequestPost({ request, env }) {
       return json({ error: 'Senha incorreta.' }, 401);
     }
 
+    const defaultPerms = usuario.perfil === 'admin'
+      ? { dashboard: true, financeiro: true, vendas: true, producao: true, estoque: true, rh: true, administrativo: true, admin: true }
+      : { dashboard: true, financeiro: false, vendas: true, producao: true, estoque: true, rh: false, administrativo: false, admin: false };
+
     const userSafe = {
       id: usuario.id,
       nome: usuario.nome,
       email: usuario.email,
-      perfil: usuario.perfil
+      perfil: usuario.perfil,
+      setor: usuario.setor || 'geral',
+      permissoes: usuario.permissoes || defaultPerms
     };
 
     const token = await signToken(userSafe, env);
