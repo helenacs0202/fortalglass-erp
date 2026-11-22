@@ -678,6 +678,21 @@ function formatarCnpj14(d) {
   return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`;
 }
 
+function validarChaveNfe44(chave) {
+  if (!/^\d{44}$/.test(chave)) return false;
+  const modelo = chave.slice(20, 22);
+  if (modelo !== '55' && modelo !== '65') return false;
+  let peso = 2;
+  let soma = 0;
+  for (let i = 42; i >= 0; i--) {
+    soma += Number(chave[i]) * peso;
+    peso = peso === 9 ? 2 : peso + 1;
+  }
+  const resto = soma % 11;
+  const dv = resto < 2 ? 0 : 11 - resto;
+  return dv === Number(chave[43]);
+}
+
 async function extrairTextoArquivo(file, onProgress) {
   const name = file.name.toLowerCase();
 
@@ -714,7 +729,7 @@ async function extrairTextoArquivo(file, onProgress) {
       const content = await page.getTextContent();
       rawText += content.items.map(item => item.str).join(' ') + '\n';
     }
-    return parseTextoNotaFiscal(rawText);
+    return parseTextoNotaFiscal(rawText, rawText);
   }
 
   // 3. Imagem / Foto de DANFE (2 passes: Cabeçalho ampliado + Página completa)
@@ -740,58 +755,67 @@ async function extrairTextoArquivo(file, onProgress) {
       }
     });
 
-    const combinedText = `${resTop.data.text || ''}\n--- PAGINA COMPLETA ---\n${resFull.data.text || ''}`;
-    const parsed = parseTextoNotaFiscal(combinedText);
-    parsed.texto = (resFull.data.text || resTop.data.text || '').trim();
+    const topText = resTop.data.text || '';
+    const fullText = resFull.data.text || topText;
+    const parsed = parseTextoNotaFiscal(topText, fullText);
+    parsed.texto = fullText.trim();
     return parsed;
   }
 
   rawText = await file.text().catch(() => '');
-  return parseTextoNotaFiscal(rawText);
+  return parseTextoNotaFiscal(rawText, rawText);
 }
 
-function parseTextoNotaFiscal(text) {
-  const cleanText = text.replace(/\r/g, '');
+function parseTextoNotaFiscal(topText, fullText) {
+  const cleanTop = (topText || '').replace(/\r/g, '');
+  const cleanFull = (fullText || topText || '').replace(/\r/g, '');
 
-  // 1. Chave de acesso de 44 dígitos (aceita espaços, pontos e traços entre os grupos)
-  const digitsOnlyStream = cleanText.replace(/[^\d\n]/g, '');
-  const chave44Match = digitsOnlyStream.match(/\d{44}/);
+  // 1. Chave de acesso de 44 dígitos VALIDADA matematicamente (Módulo-11)
   let nfFromChave = '';
   let cnpjFromChave = '';
-  if (chave44Match) {
-    const chave = chave44Match[0];
-    cnpjFromChave = formatarCnpj14(chave.slice(6, 20));
-    const nfNum = parseInt(chave.slice(25, 34), 10);
-    if (!isNaN(nfNum) && nfNum > 0) nfFromChave = String(nfNum);
+  const digitsLines = cleanTop.split('\n').map(l => l.replace(/\D/g, ''));
+  for (const lineDigits of digitsLines) {
+    if (lineDigits.length >= 44) {
+      for (let i = 0; i <= lineDigits.length - 44; i++) {
+        const cand = lineDigits.slice(i, i + 44);
+        if (validarChaveNfe44(cand)) {
+          cnpjFromChave = formatarCnpj14(cand.slice(6, 20));
+          const nfNum = parseInt(cand.slice(25, 34), 10);
+          if (!isNaN(nfNum) && nfNum > 0) nfFromChave = String(nfNum);
+          break;
+        }
+      }
+    }
+    if (nfFromChave) break;
   }
 
-  // 2. Número da NF (aceita pontos de milhar como Nº 000.000.005, Nº 000555, Nº. 108)
+  // 2. Número da NF direto do cabeçalho superior (ex: Nº. 108, Nº 000.000.005, Nº 000555)
   const nfRegexList = [
-    /(?:NF-e|NFE|NOTA\s+FISCAL|DANFE)[\s\S]{0,40}?N[º°o]\.?\s*[:\-]?\s*0*([\d\.]{1,11})/i,
-    /N[º°o]\.?\s*[:\-]?\s*0*([\d\.]{1,11})\s*(?:S[ÉE]RIE|FL|FOLHA)/i
+    /N[º°o]\.?\s*[:\-]?\s*0*([\d\.]{1,11})/i,
+    /(?:NF-e|NFE|DANFE)[\s\S]{0,35}?N[º°o]\.?\s*[:\-]?\s*0*([\d\.]{1,11})/i
   ];
-  let nfFromText = '';
+  let nfFromHeader = '';
   for (const rx of nfRegexList) {
-    const m = cleanText.match(rx);
+    const m = cleanTop.match(rx);
     if (m && m[1]) {
       const onlyDigits = m[1].replace(/\./g, '').replace(/^0+/, '');
       if (onlyDigits && onlyDigits.length <= 9) {
-        nfFromText = onlyDigits;
+        nfFromHeader = onlyDigits;
         break;
       }
     }
   }
-  const numeroNf = nfFromChave || nfFromText;
+  const numeroNf = nfFromChave || nfFromHeader;
 
   // 3. Emitente / Fornecedor: prioriza o canhoto "RECEBEMOS DE <EMPRESA> OS PRODUTOS"
   let emitente = '';
-  const canhotoMatch = cleanText.match(/RECEBEMOS\s+DE\s+([A-Z0-9À-Ú\s\.\-\/&]+?)\s+(?:OS\s+PRODUTOS|A\(S\)|AS\s+MERCADORIAS|CONSTANTES)/i);
+  const canhotoMatch = cleanTop.match(/RECEBEMOS\s+DE\s+([A-Z0-9À-Ú\s\.\-\/&]+?)\s+(?:OS\s+PRODUTOS|A\(S\)|AS\s+MERCADORIAS|CONSTANTES)/i);
   if (canhotoMatch && canhotoMatch[1]) {
     emitente = canhotoMatch[1].replace(/\s+/g, ' ').trim();
   }
 
   if (!emitente) {
-    const lines = cleanText
+    const lines = cleanTop
       .split('\n')
       .map(l => l.trim())
       .filter(l =>
@@ -804,27 +828,44 @@ function parseTextoNotaFiscal(text) {
     emitente = (empresaLine || lines[0] || '').slice(0, 90);
   }
 
-  // 4. CNPJ (prioriza CNPJ extraído da Chave de Acesso do Emitente ou o 1º CNPJ da nota)
-  const cnpjMatches = [...cleanText.matchAll(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g)].map(m => m[0]);
-  const cpfMatch = cleanText.match(/\d{3}\.\d{3}\.\d{3}-\d{2}/);
-  const docFinal = cnpjFromChave || cnpjMatches[0] || (cpfMatch ? cpfMatch[0] : '');
+  // 4. CNPJ do Emitente (antes de DESTINATÁRIO no topo, ou validado pela Chave)
+  const beforeDestTop = cleanTop.split(/DESTINAT[ÁA]RIO/i)[0] || cleanTop;
+  const cnpjTopBeforeDest = beforeDestTop.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/)?.[0] || '';
+  const cnpjAnyTop = cleanTop.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/)?.[0] || '';
+  const cpfMatch = cleanTop.match(/\d{3}\.\d{3}\.\d{3}-\d{2}/)?.[0] || '';
+  const docFinal = cnpjFromChave || cnpjTopBeforeDest || cnpjAnyTop || cpfMatch;
 
-  // 5. Valor Total da Nota (prioriza VALOR TOTAL DA NOTA sobre Valor Total dos Produtos)
+  // 5. Valor Total da Nota (remove CNPJs/CPFs antes e pega o último valor da linha de VALOR TOTAL DA NOTA)
+  const textSemDocs = cleanFull
+    .replace(/\d{2}[.,]\d{3}[.,]\d{3}\/\d{4}-\d{2}/g, ' ')
+    .replace(/\d{3}[.,]\d{3}[.,]\d{3}-\d{2}/g, ' ');
+
   let valorNum = '';
-  const valorNotaRegexList = [
-    /VALOR\s+TOTAL\s+DA\s+NOTA[\s\S]{0,60}?(\d{1,3}(?:\.\d{3})*,\d{2})/i,
-    /VALOR\s+TOTAL\s*[:\-]?\s*R?\$?\s*(\d{1,3}(?:\.\d{3})*,\d{2})/i,
-    /TOTAL\s+GERAL[\s\S]{0,40}?(\d{1,3}(?:\.\d{3})*,\d{2})/i
-  ];
-  for (const rx of valorNotaRegexList) {
-    const m = cleanText.match(rx);
-    if (m && m[1]) {
-      valorNum = m[1].replace(/\./g, '').replace(',', '.');
-      break;
+  const blocoTotalNota = textSemDocs.match(/VALOR\s+TOTAL\s+DA\s+NOTA([\s\S]{0,160}?)(?:TRANSPORTADOR|DADOS\s+DOS\s+PRODUTOS|$)/i);
+  if (blocoTotalNota && blocoTotalNota[1]) {
+    const numsBloco = [...blocoTotalNota[1].matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)]
+      .map(m => parseFloat(m[1].replace(/\./g, '').replace(',', '.')))
+      .filter(n => !isNaN(n));
+    if (numsBloco.length > 0) {
+      const ultimo = numsBloco[numsBloco.length - 1];
+      if (ultimo > 0) valorNum = ultimo.toFixed(2);
     }
   }
+
   if (!valorNum) {
-    const todosValores = [...cleanText.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)]
+    const blocoTotalProd = textSemDocs.match(/VALOR\s+TOTAL\s+DOS\s+PRODUTOS([\s\S]{0,140}?)(?:VALOR\s+DO\s+FRETE|TRANSPORTADOR|$)/i);
+    if (blocoTotalProd && blocoTotalProd[1]) {
+      const numsProd = [...blocoTotalProd[1].matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)]
+        .map(m => parseFloat(m[1].replace(/\./g, '').replace(',', '.')))
+        .filter(n => !isNaN(n) && n > 0);
+      if (numsProd.length > 0) {
+        valorNum = numsProd[numsProd.length - 1].toFixed(2);
+      }
+    }
+  }
+
+  if (!valorNum) {
+    const todosValores = [...textSemDocs.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)]
       .map(m => parseFloat(m[1].replace(/\./g, '').replace(',', '.')))
       .filter(n => !isNaN(n) && n > 0 && n < 10000000);
     if (todosValores.length > 0) {
@@ -834,11 +875,11 @@ function parseTextoNotaFiscal(text) {
 
   // 6. Data (prioriza Vencimento de Fatura/Duplicata, depois Data de Emissão)
   let dataIso = '';
-  const faturaSection = cleanText.match(/FATURAS?[\s\S]{0,260}/i)?.[0] || '';
+  const faturaSection = cleanFull.match(/FATURAS?[\s\S]{0,260}/i)?.[0] || '';
   const vencFaturaMatch = faturaSection.match(/(\d{2})\/(\d{2})\/(20\d{2})/);
-  const vencLabelMatch = cleanText.match(/(?:VENCIMENTO|VENC\.?)[\s\S]{0,30}?(\d{2})\/(\d{2})\/(20\d{2})/i);
-  const emissaoMatch = cleanText.match(/(?:EMISS[ÃA]O)[\s\S]{0,35}?(\d{2})\/(\d{2})\/(20\d{2})/i);
-  const anyDateMatch = cleanText.match(/(\d{2})\/(\d{2})\/(20\d{2})/);
+  const vencLabelMatch = cleanFull.match(/(?:VENCIMENTO|VENC\.?)[\s\S]{0,30}?(\d{2})\/(\d{2})\/(20\d{2})/i);
+  const emissaoMatch = cleanTop.match(/(?:EMISS[ÃA]O)[\s\S]{0,35}?(\d{2})\/(\d{2})\/(20\d{2})/i);
+  const anyDateMatch = cleanTop.match(/(\d{2})\/(\d{2})\/(20\d{2})/);
 
   const chosenDate = vencFaturaMatch || vencLabelMatch || emissaoMatch || anyDateMatch;
   if (chosenDate) {
@@ -851,7 +892,7 @@ function parseTextoNotaFiscal(text) {
     nf: numeroNf,
     valor: valorNum,
     data: dataIso,
-    texto: cleanText.trim()
+    texto: cleanFull.trim()
   };
 }
 
