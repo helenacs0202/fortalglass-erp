@@ -87,6 +87,12 @@
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
           Gerador de Certificados
         </button>
+        <button class="nav-item" data-module="sst" data-perm="rh,administrativo,producao">
+  <span>SST: ASOs & Treinamentos</span>
+</button>
+<button class="nav-item" data-module="acervo" data-perm="administrativo,rh,financeiro">
+  <span>Acervo Digital (Papel)</span>
+</button>
 
         <div class="nav-section-label" data-perm="admin">Administração (ADM)</div>
         <button class="nav-item" data-module="admin_acessos" data-perm="admin">
@@ -961,6 +967,234 @@
             </div>
           </div>
         </section>
+        <!-- ================= MÓDULO SST: ASOs & TREINAMENTOS ================= -->
+<section id="section-sst" class="hidden">
+  <div class="grid-2" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:20px;">
+    <div class="card">
+      <small style="color:var(--text-muted);">ASOs a Fazer / Vencidos</small>
+      <h2 id="sst-kpi-asos" class="text-danger" style="margin:6px 0 0;">0</h2>
+    </div>
+    <div class="card">
+      <small style="color:var(--text-muted);">Treinamentos Obrigatórios Pendentes</small>
+      <h2 id="sst-kpi-nrs" class="text-danger" style="margin:6px 0 0;">0</h2>
+    </div>
+    <div class="card">
+      <small style="color:var(--text-muted);">Pastas RH Digitalizadas (Média)</small>
+      <h2 id="sst-kpi-pastas" style="color:var(--primary); margin:6px 0 0;">0%</h2>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+      <div>
+        <h3>Pendências de Saúde (ASOs) e Treinamentos Obrigatórios</h3>
+        <small style="color:var(--text-muted);">Cruzamento automático entre setor do colaborador, ASOs e Matriz de NRs</small>
+      </div>
+      <select id="sst-filtro-status" class="form-control" style="max-width:220px;" onchange="renderSstPendencias()">
+        <option value="pendentes">Somente Pendentes / Vencidos</option>
+        <option value="todos">Todos os Colaboradores</option>
+      </select>
+    </div>
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Colaborador</th>
+            <th>Setor</th>
+            <th>Tipo</th>
+            <th>Exigência / Norma</th>
+            <th>Situação</th>
+            <th>Validade</th>
+            <th>Ação Rápida</th>
+          </tr>
+        </thead>
+        <tbody id="sst-pendencias-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <h3>Registrar Exame Ocupacional (ASO)</h3>
+    <form id="form-sst-aso" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-top:12px;">
+      <div>
+        <label>Colaborador</label>
+        <select id="aso-colaborador" required></select>
+      </div>
+      <div>
+        <label>Tipo de Exame</label>
+        <select id="aso-tipo" required>
+          <option value="admissional">Admissional</option>
+          <option value="periodico">Periódico</option>
+          <option value="mudanca_risco">Mudança de Risco / Função</option>
+          <option value="retorno_trabalho">Retorno ao Trabalho</option>
+          <option value="demissional">Demissional</option>
+        </select>
+      </div>
+      <div>
+        <label>Parecer Médico</label>
+        <select id="aso-resultado" required>
+          <option value="apto">Apto</option>
+          <option value="apto_restricoes">Apto com Restrições</option>
+          <option value="inapto">Inapto</option>
+        </select>
+      </div>
+      <div>
+        <label>Data do Exame</label>
+        <input type="date" id="aso-data-exame" required>
+      </div>
+      <div>
+        <label>Validade (Padrão 12 meses)</label>
+        <input type="date" id="aso-data-validade">
+      </div>
+      <div>
+        <label>Clínica / Médico Examinador</label>
+        <input type="text" id="aso-clinica" placeholder="Ex: Clínica Vida / Dr. Carlos">
+      </div>
+      <div>
+        <label>Foto ou PDF do ASO Assinado</label>
+        <input type="file" id="aso-file" accept="image/*,.pdf">
+      </div>
+      <div style="display:flex; align-items:flex-end;">
+        <button type="submit" class="btn-pill btn-primary" style="width:100%;">Salvar ASO</button>
+      </div>
+    </form>
+
+    <div class="table-responsive" style="margin-top:18px;">
+      <table>
+        <thead>
+          <tr>
+            <th>Colaborador</th>
+            <th>Tipo</th>
+            <th>Parecer</th>
+            <th>Data Exame</th>
+            <th>Validade</th>
+            <th>Status</th>
+            <th>Anexo</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody id="sst-asos-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <h3>Registrar Treinamento em Turma (Vários Colaboradores)</h3>
+    <p style="color:var(--text-muted); font-size:0.9rem;">Selecione o curso/NR e marque os colaboradores participantes para lançar todas as validades de uma vez.</p>
+    <form id="form-sst-turma" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:12px; margin-top:12px;">
+      <div>
+        <label>Norma / Treinamento</label>
+        <select id="turma-nr-select" required></select>
+      </div>
+      <div>
+        <label>Data de Realização</label>
+        <input type="date" id="turma-data" required>
+      </div>
+      <div>
+        <label>Validade (Meses)</label>
+        <input type="number" id="turma-validade-meses" value="12" min="1" required>
+      </div>
+      <div>
+        <label>Lista de Presença / Certificado Assinado (PDF/Foto)</label>
+        <input type="file" id="turma-file" accept="image/*,.pdf">
+      </div>
+      <div style="grid-column:1 / -1;">
+        <label>Selecione os Colaboradores Participantes:</label>
+        <div id="turma-colabs-checklist" style="display:flex; flex-wrap:wrap; gap:10px; padding:10px; border:1px solid var(--border); border-radius:8px; margin-top:6px;"></div>
+      </div>
+      <div>
+        <button type="submit" class="btn-pill btn-primary">Lançar Treinamento para Turma</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Checklist de Prontuário Digital (Substituição das Pastas Físicas de RH)</h3>
+    <p style="color:var(--text-muted); font-size:0.9rem;">Acompanhe quais documentos físicos de cada funcionário já foram fotografados/digitalizados no sistema.</p>
+    <div class="table-responsive" style="margin-top:12px;">
+      <table>
+        <thead>
+          <tr>
+            <th>Colaborador</th>
+            <th>Documentos Digitalizados</th>
+            <th>Completude</th>
+            <th>Digitalizar Documento</th>
+          </tr>
+        </thead>
+        <tbody id="sst-prontuario-body"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MÓDULO ACERVO DIGITAL (DIGITALIZAÇÃO DO PAPEL) ================= -->
+<section id="section-acervo" class="hidden">
+  <div class="card" style="margin-bottom:20px;">
+    <h3>Digitalizar Documentos em Lote (Fotos de Celular ou PDFs)</h3>
+    <p style="color:var(--text-muted); font-size:0.9rem;">
+      Selecione uma ou várias fotos/PDFs de papéis antigos. O sistema envia para a nuvem e lê o texto automaticamente (OCR) para você encontrar depois pela busca.
+    </p>
+    <form id="form-acervo-lote" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:12px; margin-top:12px;">
+      <div>
+        <label>Categoria / Pasta Digital</label>
+        <select id="acervo-categoria" required></select>
+      </div>
+      <div>
+        <label>Prefixo / Título Base (opcional)</label>
+        <input type="text" id="acervo-titulo" placeholder="Ex: Pedido Obra Residencial">
+      </div>
+      <div>
+        <label>Localização Física / Caixa Arquivo</label>
+        <input type="text" id="acervo-pasta-fisica" placeholder="Ex: Caixa 03 - Arquivo Morto">
+      </div>
+      <div>
+        <label>Data do Documento (opcional)</label>
+        <input type="date" id="acervo-data">
+      </div>
+      <div>
+        <label>Vincular a Colaborador (opcional)</label>
+        <select id="acervo-colaborador">
+          <option value="">Nenhum (Documento Geral)</option>
+        </select>
+      </div>
+      <div>
+        <label>Arquivos (Selecione 1 ou vários)</label>
+        <input type="file" id="acervo-files" accept="image/*,.pdf" multiple required>
+      </div>
+      <div style="grid-column:1 / -1; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+        <button type="submit" id="btn-acervo-upload" class="btn-pill btn-primary">Digitalizar e Indexar Arquivos</button>
+        <span id="acervo-ocr-status" style="font-weight:600; color:var(--primary);"></span>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+      <h3>Documentos Digitalizados no Sistema</h3>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <select id="acervo-filtro-cat" onchange="renderAcervoTable()" style="min-width:190px;">
+          <option value="">Todas as Categorias</option>
+        </select>
+        <input type="text" id="acervo-busca" oninput="renderAcervoTable()" placeholder="Buscar por nome, CNPJ, pedido ou texto lido na foto..." style="min-width:280px;">
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Título / Arquivo</th>
+            <th>Categoria</th>
+            <th>Caixa Física</th>
+            <th>Trecho Lido (OCR)</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="acervo-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
 
         <!-- 9. ADMINISTRAÇÃO: HIERARQUIA, PERMISSÕES & CONFIGURAÇÕES -->
         <section id="section-admin_acessos" class="hidden">
@@ -1073,6 +1307,103 @@
               </form>
             </div>
           </div>
+          <!-- AUTONOMIA ADMINISTRATIVA: CADASTROS MESTRE & REGRAS DO SISTEMA -->
+<div class="card" style="margin-top:20px;">
+  <h3>Autonomia Administrativa: Normas (NRs), Matriz SST & Categorias</h3>
+  <p style="color:var(--text-muted); font-size:0.9rem;">
+    Permite que gestores e administradores adicionem ou excluam normas, obrigatoriedades por setor, documentos de RH e pastas sem alterar o código.
+  </p>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:20px; margin-top:16px;">
+    <div style="border:1px solid var(--border); border-radius:10px; padding:14px;">
+      <h4>1. Catálogo de Normas (NRs) e Cursos</h4>
+      <form id="form-adm-nr" style="display:grid; gap:8px; margin-top:10px;">
+        <input type="hidden" id="adm-nr-id">
+        <div style="display:grid; grid-template-columns:1fr 2fr; gap:8px;">
+          <input type="text" id="adm-nr-codigo" placeholder="Código (Ex: NR-35)" required>
+          <input type="text" id="adm-nr-nome" placeholder="Nome da Norma / Curso" required>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <input type="number" id="adm-nr-validade" placeholder="Validade (meses)" value="12" required>
+          <input type="number" id="adm-nr-carga" placeholder="Carga horária (h)" value="8" required>
+        </div>
+        <textarea id="adm-nr-conteudo" rows="2" placeholder="Conteúdo programático (aparece no certificado)"></textarea>
+        <div style="display:flex; gap:8px;">
+          <button type="submit" class="btn-pill btn-primary btn-sm">Salvar Norma</button>
+          <button type="button" class="btn-pill btn-outline btn-sm" onclick="resetFormAdmNr()">Limpar</button>
+        </div>
+      </form>
+      <div class="table-responsive" style="margin-top:10px; max-height:220px; overflow:auto;">
+        <table>
+          <thead><tr><th>Código</th><th>Norma</th><th>Val.</th><th>Ação</th></tr></thead>
+          <tbody id="adm-nrs-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:10px; padding:14px;">
+      <h4>2. NRs Obrigatórias por Setor</h4>
+      <form id="form-adm-matriz" style="display:grid; gap:8px; margin-top:10px;">
+        <select id="adm-matriz-setor" required>
+          <option value="producao">Produção / Fábrica</option>
+          <option value="instalacao">Instalação / Obra</option>
+          <option value="administrativo">Administrativo</option>
+          <option value="vendas">Vendas / Comercial</option>
+          <option value="geral">Todos os Setores (Geral)</option>
+        </select>
+        <select id="adm-matriz-nr" required></select>
+        <button type="submit" class="btn-pill btn-primary btn-sm">Tornar Obrigatória no Setor</button>
+      </form>
+      <div class="table-responsive" style="margin-top:10px; max-height:220px; overflow:auto;">
+        <table>
+          <thead><tr><th>Setor</th><th>Norma</th><th>Ação</th></tr></thead>
+          <tbody id="adm-matriz-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:10px; padding:14px;">
+      <h4>3. Checklist de Documentos RH</h4>
+      <form id="form-adm-tipodoc" style="display:grid; gap:8px; margin-top:10px;">
+        <input type="text" id="adm-tipodoc-nome" placeholder="Ex: CNH, Ficha EPI, Exame Toxicológico" required>
+        <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
+          <input type="checkbox" id="adm-tipodoc-obrig" checked> Documento obrigatório na admissão
+        </label>
+        <button type="submit" class="btn-pill btn-primary btn-sm">Adicionar Item</button>
+      </form>
+      <div class="table-responsive" style="margin-top:10px; max-height:220px; overflow:auto;">
+        <table>
+          <thead><tr><th>Documento</th><th>Tipo</th><th>Ação</th></tr></thead>
+          <tbody id="adm-tipodoc-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:10px; padding:14px;">
+      <h4>4. Categorias do Acervo Digital</h4>
+      <form id="form-adm-cat-acervo" style="display:grid; gap:8px; margin-top:10px;">
+        <input type="text" id="adm-cat-acervo-nome" placeholder="Ex: Projetos Técnicos, Alvarás" required>
+        <button type="submit" class="btn-pill btn-primary btn-sm">Adicionar Categoria</button>
+      </form>
+      <div class="table-responsive" style="margin-top:10px; max-height:220px; overflow:auto;">
+        <table>
+          <thead><tr><th>Categoria</th><th>Ação</th></tr></thead>
+          <tbody id="adm-cat-acervo-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:18px;">
+    <h4>Histórico de Implantações e Alterações (Auditoria ADM)</h4>
+    <div class="table-responsive" style="margin-top:8px; max-height:180px; overflow:auto;">
+      <table>
+        <thead><tr><th>Data/Hora</th><th>Responsável</th><th>Ação</th><th>Detalhes</th></tr></thead>
+        <tbody id="adm-auditoria-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
         </section>
       </main>
     </div>
