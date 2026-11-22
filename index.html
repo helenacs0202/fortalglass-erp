@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FortalGlass ERP · Gestão Financeira & Operacional</title>
+  <title>FortalGlass ERP · Gestão Financeira, RH & Produção</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
 
@@ -17,32 +19,20 @@
     <div class="login-card">
       <div class="login-brand">
         <img src="assets/logo-fortalglass.png" alt="FortalGlass" />
-        <p>Sistema Integrado de Gestão Financeira e Produção</p>
+        <p>Sistema Integrado de Gestão Financeira, RH e Produção</p>
       </div>
 
       <div id="login-error" class="login-error hidden"></div>
 
-<form id="login-form">
+      <form id="login-form">
         <div class="form-group">
           <label for="login-email">Login</label>
-          <input
-            type="text"
-            id="login-email"
-            class="form-control"
-            autocomplete="username"
-            required
-          />
+          <input type="text" id="login-email" class="form-control" autocomplete="username" required />
         </div>
 
         <div class="form-group">
           <label for="login-senha">Senha</label>
-          <input
-            type="password"
-            id="login-senha"
-            class="form-control"
-            autocomplete="current-password"
-            required
-          />
+          <input type="password" id="login-senha" class="form-control" autocomplete="current-password" required />
         </div>
 
         <button type="submit" id="login-submit" class="btn-pill btn-primary btn-full">
@@ -60,68 +50,77 @@
       </div>
 
       <nav class="sidebar-nav">
-        <div class="nav-section-label">Financeiro</div>
+        <div class="nav-section-label">Geral</div>
         <button class="nav-item active" data-module="dashboard">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
           Visão Geral
         </button>
-        <button class="nav-item" data-module="fluxo">
+
+        <div class="nav-section-label" data-perm="financeiro">Financeiro</div>
+        <button class="nav-item" data-module="fluxo" data-perm="financeiro">
           <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
           Fluxo de Caixa
         </button>
-        <button class="nav-item" data-module="pagar">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <button class="nav-item" data-module="receber" data-perm="financeiro,vendas">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+          Contas a Receber
+        </button>
+        <button class="nav-item" data-module="pagar" data-perm="financeiro">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
           Contas a Pagar
         </button>
 
-        <div class="nav-section-label">Operação & Comercial</div>
-        <button class="nav-item" data-module="servicos">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-          Serviços & Comercial
+        <div class="nav-section-label" data-perm="rh,administrativo,producao">Administrativo & RH</div>
+        <button class="nav-item" data-module="rh_colaboradores" data-perm="rh,administrativo">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Colaboradores & NRs
         </button>
-        <button class="nav-item" data-module="producao">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          Produção
+        <button class="nav-item" data-module="rh_folha" data-perm="rh,administrativo,financeiro">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          Vales & Folha
         </button>
-        <button class="nav-item" data-module="estoque">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-          Estoque
+        <button class="nav-item" data-module="rh_comportamento" data-perm="rh,administrativo,producao">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Comportamento & Produtiv.
+        </button>
+        <button class="nav-item" data-module="certificados" data-perm="rh,administrativo">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+          Gerador de Certificados
         </button>
 
-        <div class="nav-section-label" data-admin-only="true">Administração</div>
-        <button class="nav-item" data-module="folha" data-admin-only="true">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Folha & Comissões
-        </button>
-        <button class="nav-item" data-module="config" data-admin-only="true">
-          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          Configurações
+        <div class="nav-section-label" data-perm="admin">Administração (ADM)</div>
+        <button class="nav-item" data-module="admin_acessos" data-perm="admin">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Acessos & Configurações
         </button>
       </nav>
 
       <div class="sidebar-footer">
-        FortalGlass ERP · v1.0
+        FortalGlass ERP · v2.0
       </div>
     </aside>
 
     <div class="main-wrapper">
       <header class="topbar">
         <div class="topbar-title">
-          <h1 id="page-title">Visão Geral Financeira</h1>
-          <p id="page-subtitle">Indicadores de caixa, projeção de 30 dias e movimentações recentes</p>
+          <h1 id="page-title">Visão Geral</h1>
+          <p id="page-subtitle">Indicadores financeiros, vencimentos e alertas de NRs</p>
         </div>
 
         <div class="topbar-actions">
+          <button id="btn-open-ocr-global" class="btn-pill btn-outline btn-sm">
+            Ler NF / Documento
+          </button>
           <div class="user-chip">
             <span id="topbar-user-name" class="user-name">Usuário</span>
             <span id="topbar-user-role" class="role-badge">Perfil</span>
           </div>
-          <button id="btn-logout" class="btn-pill btn-outline">Sair</button>
+          <button id="btn-logout" class="btn-pill btn-outline btn-sm">Sair</button>
         </div>
       </header>
 
       <main class="content-area">
-        <!-- DASHBOARD -->
+        <!-- 1. DASHBOARD -->
         <section id="section-dashboard">
           <div id="dashboard-alerts" class="alerts-stack"></div>
 
@@ -176,9 +175,9 @@
               <div class="card-header">
                 <div>
                   <h2 class="card-title">Fluxo de Caixa · Últimos 6 Meses</h2>
-                  <p class="card-subtitle">Comparativo mensal entre entradas realizadas e saídas pagas</p>
+                  <p class="card-subtitle">Entradas realizadas vs. Saídas pagas</p>
                 </div>
-                <button id="btn-refresh-dashboard" class="btn-pill btn-outline">Atualizar</button>
+                <button id="btn-refresh-dashboard" class="btn-pill btn-outline btn-sm">Atualizar</button>
               </div>
               <div class="chart-container">
                 <canvas id="chart-fluxo"></canvas>
@@ -202,38 +201,990 @@
             <div class="card-header">
               <div>
                 <h2 class="card-title">Atividades Recentes</h2>
-                <p class="card-subtitle">Últimos serviços cadastrados e lançamentos de despesas</p>
+                <p class="card-subtitle">Últimos serviços e despesas lançados</p>
               </div>
             </div>
-            <table class="activity-table">
-              <thead>
-                <tr>
-                  <th>Origem</th>
-                  <th>Descrição</th>
-                  <th>Valor</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="recent-activities-body">
-                <tr>
-                  <td colspan="4" style="text-align:center; color: var(--text-muted); padding: 20px;">
-                    Carregando dados do banco...
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Origem</th>
+                    <th>Descrição</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-activities-body"></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
-        <!-- PLACEHOLDER DOS DEMAIS MÓDULOS -->
-        <section id="section-module-placeholder" class="hidden">
-          <div class="card" style="text-align:center; padding: 48px 24px;">
-            <h2 id="placeholder-title" class="card-title" style="font-size:1.25rem; margin-bottom:8px;">Módulo</h2>
-            <p id="placeholder-desc" class="card-subtitle" style="font-size:0.9375rem; max-width:520px; margin: 0 auto 20px;"></p>
-            <button class="btn-pill btn-primary" onclick="switchModule('dashboard')">Voltar para Visão Geral</button>
+        <!-- 2. FLUXO DE CAIXA -->
+        <section id="section-fluxo" class="hidden">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Lançamento Avulso no Caixa</h2>
+                <p class="card-subtitle">Registre entradas extras ou pequenas despesas operacionais imediatas</p>
+              </div>
+            </div>
+            <form id="form-avulsa" class="form-grid">
+              <div class="form-group">
+                <label>Tipo</label>
+                <select id="avulsa-tipo" class="form-control">
+                  <option value="receita">Entrada (+)</option>
+                  <option value="despesa">Saída (-)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Descrição</label>
+                <input type="text" id="avulsa-descricao" class="form-control" required />
+              </div>
+              <div class="form-group">
+                <label>Valor (R$)</label>
+                <input type="number" step="0.01" id="avulsa-valor" class="form-control" required />
+              </div>
+              <div class="form-group">
+                <label>Data</label>
+                <input type="date" id="avulsa-data" class="form-control" required />
+              </div>
+              <div class="form-group" style="display:flex; align-items:flex-end;">
+                <button type="submit" class="btn-pill btn-primary btn-full">Registrar no Caixa</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Extrato Consolidado (Realizado & Previsto)</h2>
+                <p class="card-subtitle">Todas as parcelas a receber, contas a pagar e movimentações avulsas</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Origem</th>
+                    <th>Descrição</th>
+                    <th>Categoria / NF</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                    <th>Anexo</th>
+                  </tr>
+                </thead>
+                <tbody id="fluxo-extrato-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. CONTAS A RECEBER (SERVIÇOS & PARCELAS) -->
+        <section id="section-receber" class="hidden">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Novo Serviço / Pedido a Receber</h2>
+                <p class="card-subtitle">Cadastre o pedido comercial e gere as parcelas (diretas ou mediante Nota Fiscal)</p>
+              </div>
+            </div>
+            <form id="form-servico">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Cliente / Construtora</label>
+                  <input type="text" id="serv-cliente" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Descrição do Serviço (Ex: Guarda-corpo, Box, Fachada)</label>
+                  <input type="text" id="serv-descricao" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Valor Total (R$)</label>
+                  <input type="number" step="0.01" id="serv-valor" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Vendedor Responsável</label>
+                  <select id="serv-vendedor" class="form-control">
+                    <option value="">Sem vendedor vinculado</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Qtd. Parcelas</label>
+                  <input type="number" min="1" max="24" value="1" id="serv-qtd-parcelas" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>1º Vencimento</label>
+                  <input type="date" id="serv-primeiro-venc" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Tipo de Cobrança</label>
+                  <select id="serv-tipo-cobranca" class="form-control">
+                    <option value="direto">Cobrança Direta (PIX / Boleto / Cartão)</option>
+                    <option value="mediante_nf">Mediante Emissão de NF</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Número da NF (se já emitida)</label>
+                  <input type="text" id="serv-nf" class="form-control" />
+                </div>
+              </div>
+              <button type="submit" class="btn-pill btn-primary">Cadastrar Serviço e Gerar Parcelas</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Parcelas a Receber & Recebidas</h2>
+                <p class="card-subtitle">Dê baixa nas parcelas pagas e acompanhe pendências de Nota Fiscal</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Vencimento</th>
+                    <th>Cliente · Serviço</th>
+                    <th>Parcela</th>
+                    <th>Cobrança / NF</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="receber-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. CONTAS A PAGAR (COM LEITOR DE NF & RATEIO) -->
+        <section id="section-pagar" class="hidden">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Nova Conta a Pagar</h2>
+                <p class="card-subtitle">Importe o XML/PDF/Foto da NF para preenchimento automático ou lance manualmente</p>
+              </div>
+            </div>
+
+            <div class="ocr-box">
+              <div class="ocr-box-info">
+                <h4>Leitura Automática de NF / Boleto + Anexo no R2</h4>
+                <p>Envie XML de NF-e, PDF ou foto do documento para preencher fornecedor, NF, vencimento e valor.</p>
+              </div>
+              <div>
+                <input type="file" id="pagar-file-ocr" accept=".xml,.pdf,image/*" class="hidden" />
+                <button type="button" class="btn-pill btn-gold btn-sm" onclick="document.getElementById('pagar-file-ocr').click()">
+                  Importar NF / Comprovante
+                </button>
+                <span id="pagar-ocr-status" style="font-size:0.78rem; margin-left:8px; color:var(--primary); font-weight:600;"></span>
+              </div>
+            </div>
+
+            <form id="form-pagar">
+              <input type="hidden" id="pagar-comprovante-url" />
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Fornecedor</label>
+                  <input type="text" id="pagar-fornecedor" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>CNPJ Fornecedor</label>
+                  <input type="text" id="pagar-cnpj" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>Descrição da Despesa</label>
+                  <input type="text" id="pagar-descricao" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Nº Nota Fiscal</label>
+                  <input type="text" id="pagar-nf" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>Categoria</label>
+                  <select id="pagar-categoria" class="form-control"></select>
+                </div>
+                <div class="form-group">
+                  <label>Tipo de Despesa</label>
+                  <select id="pagar-tipo" class="form-control">
+                    <option value="variavel">Variável</option>
+                    <option value="fixa">Fixa</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Valor (R$)</label>
+                  <input type="number" step="0.01" id="pagar-valor" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Data de Vencimento</label>
+                  <input type="date" id="pagar-vencimento" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Situação Inicial</label>
+                  <select id="pagar-status" class="form-control">
+                    <option value="pendente">Pendente (A Pagar)</option>
+                    <option value="pago">Já Pago</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Rateio (Centro de Custo Principal)</label>
+                  <select id="pagar-rateio-cc" class="form-control">
+                    <option value="">Sem rateio</option>
+                    <option value="Produção / Fábrica (100%)">Produção / Fábrica (100%)</option>
+                    <option value="Comercial / Obras (100%)">Comercial / Obras (100%)</option>
+                    <option value="Administrativo (100%)">Administrativo (100%)</option>
+                    <option value="Misto: 70% Fábrica / 30% Adm">Misto: 70% Fábrica / 30% Adm</option>
+                  </select>
+                </div>
+              </div>
+              <button type="submit" class="btn-pill btn-primary">Salvar Conta a Pagar</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Contas a Pagar & Pagas</h2>
+                <p class="card-subtitle">Controle de vencimentos, rateios, comprovantes anexados e baixa de pagamento</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Vencimento</th>
+                    <th>Fornecedor · Descrição</th>
+                    <th>Categoria / Rateio</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                    <th>Anexo</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="pagar-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. RH: COLABORADORES & NRs PRÉ-DEFINIDAS -->
+        <section id="section-rh_colaboradores" class="hidden">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Cadastro de Colaborador</h2>
+                <p class="card-subtitle">Dados pessoais, salário base, chave PIX e regras de comissão</p>
+              </div>
+            </div>
+            <form id="form-colaborador">
+              <input type="hidden" id="colab-id" />
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Nome Completo</label>
+                  <input type="text" id="colab-nome" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>CPF</label>
+                  <input type="text" id="colab-cpf" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>RG</label>
+                  <input type="text" id="colab-rg" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>Telefone / WhatsApp</label>
+                  <input type="text" id="colab-telefone" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>Cargo / Função</label>
+                  <input type="text" id="colab-cargo" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Setor</label>
+                  <select id="colab-setor" class="form-control">
+                    <option value="producao">Produção / Fábrica</option>
+                    <option value="instalacao">Instalação / Obras</option>
+                    <option value="vendas">Vendas / Comercial</option>
+                    <option value="administrativo">Administrativo / RH</option>
+                    <option value="financeiro">Financeiro</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Data de Admissão</label>
+                  <input type="date" id="colab-admissao" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>Salário Base (R$)</label>
+                  <input type="number" step="0.01" id="colab-salario" class="form-control" value="0" />
+                </div>
+                <div class="form-group">
+                  <label>Chave PIX</label>
+                  <input type="text" id="colab-pix" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>Comissão Faixa 1 (%)</label>
+                  <input type="number" step="0.01" id="colab-comissao1" class="form-control" value="0" />
+                </div>
+                <div class="form-group">
+                  <label>Status</label>
+                  <select id="colab-status" class="form-control">
+                    <option value="ativo">Ativo</option>
+                    <option value="afastado">Afastado</option>
+                    <option value="desligado">Desligado</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex; gap:10px;">
+                <button type="submit" class="btn-pill btn-primary">Salvar Colaborador</button>
+                <button type="button" class="btn-pill btn-outline" onclick="resetFormColaborador()">Limpar Campos</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Equipe Cadastrada</h2>
+                <p class="card-subtitle">Clique em Editar para alterar dados ou anexar documentos/NRs abaixo</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Colaborador</th>
+                    <th>CPF</th>
+                    <th>Cargo · Setor</th>
+                    <th>Salário Base</th>
+                    <th>PIX</th>
+                    <th>Status</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="colab-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Documentos & NRs Pré-Definidas</h2>
+                <p class="card-subtitle">Vincule NRs obrigatórias ou documentos digitais com controle de validade</p>
+              </div>
+            </div>
+            <form id="form-documento">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Colaborador</label>
+                  <select id="doc-colaborador" class="form-control" required></select>
+                </div>
+                <div class="form-group">
+                  <label>NR Pré-Definida (opcional)</label>
+                  <select id="doc-nr-select" class="form-control">
+                    <option value="">Documento Geral (Sem NR)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Título do Documento / NR</label>
+                  <input type="text" id="doc-titulo" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Data de Emissão</label>
+                  <input type="date" id="doc-emissao" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>Data de Validade (automática p/ NR)</label>
+                  <input type="date" id="doc-validade" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>Arquivo (PDF ou Foto)</label>
+                  <input type="file" id="doc-file" accept=".pdf,image/*" class="form-control" />
+                </div>
+              </div>
+              <button type="submit" class="btn-pill btn-primary">Salvar Documento / NR</button>
+            </form>
+
+            <div class="table-responsive" style="margin-top:20px;">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Colaborador</th>
+                    <th>Documento / NR</th>
+                    <th>Emissão</th>
+                    <th>Validade</th>
+                    <th>Situação</th>
+                    <th>Arquivo</th>
+                  </tr>
+                </thead>
+                <tbody id="docs-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6. RH: VALES & FOLHA DE PAGAMENTO -->
+        <section id="section-rh_folha" class="hidden">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Lançar Vale, Adiantamento ou Bônus</h2>
+                <p class="card-subtitle">Os lançamentos são abatidos ou somados automaticamente na folha do mês</p>
+              </div>
+              <div>
+                <label style="font-size:0.78rem; font-weight:600; margin-right:6px;">Mês Referência:</label>
+                <input type="month" id="rh-mes-filtro" class="form-control" style="display:inline-block; width:auto;" />
+              </div>
+            </div>
+            <form id="form-vale" class="form-grid">
+              <div class="form-group">
+                <label>Colaborador</label>
+                <select id="vale-colaborador" class="form-control" required></select>
+              </div>
+              <div class="form-group">
+                <label>Tipo</label>
+                <select id="vale-tipo" class="form-control">
+                  <option value="adiantamento">Vale / Adiantamento Salarial (-)</option>
+                  <option value="transporte">Vale Transporte / Combustível (-)</option>
+                  <option value="desconto">Outro Desconto (-)</option>
+                  <option value="bonus">Bônus / Premiação (+)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Descrição</label>
+                <input type="text" id="vale-descricao" class="form-control" required />
+              </div>
+              <div class="form-group">
+                <label>Valor (R$)</label>
+                <input type="number" step="0.01" id="vale-valor" class="form-control" required />
+              </div>
+              <div class="form-group" style="display:flex; align-items:flex-end;">
+                <button type="submit" class="btn-pill btn-primary btn-full">Lançar na Folha</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Fechamento da Folha Mensal</h2>
+                <p class="card-subtitle">Salário Base + Comissões de Vendas + Bônus - Vales/Descontos</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Colaborador</th>
+                    <th>Salário Base</th>
+                    <th>Comissões</th>
+                    <th>Bônus</th>
+                    <th>Vales / Desc.</th>
+                    <th>Líquido a Pagar</th>
+                    <th>Status</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="folha-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Histórico de Vales e Lançamentos do Mês</h2>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Colaborador</th>
+                    <th>Tipo</th>
+                    <th>Descrição</th>
+                    <th>Valor</th>
+                    <th>Situação</th>
+                  </tr>
+                </thead>
+                <tbody id="vales-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 7. RH: COMPORTAMENTO, RELATÓRIOS & PRODUTIVIDADE -->
+        <section id="section-rh_comportamento" class="hidden">
+          <div class="tabs-bar">
+            <button class="tab-btn active" data-rhtab="comportamento">Comportamento & Relatórios</button>
+            <button class="tab-btn" data-rhtab="produtividade">Produtividade da Equipe</button>
+          </div>
+
+          <div id="subtab-comportamento">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">Registrar Ocorrência Comportamental</h2>
+                  <p class="card-subtitle">Elogios, atrasos, faltas, advertências e histórico disciplinar</p>
+                </div>
+                <button type="button" class="btn-pill btn-outline btn-sm" onclick="imprimirRelatorioComportamento()">
+                  Imprimir Relatório Geral
+                </button>
+              </div>
+              <form id="form-ocorrencia" class="form-grid">
+                <div class="form-group">
+                  <label>Colaborador</label>
+                  <select id="ocorr-colaborador" class="form-control" required></select>
+                </div>
+                <div class="form-group">
+                  <label>Tipo de Ocorrência</label>
+                  <select id="ocorr-tipo" class="form-control">
+                    <option value="elogio">Elogio / Destaque</option>
+                    <option value="observacao">Observação Geral</option>
+                    <option value="atraso">Atraso</option>
+                    <option value="falta">Falta Injustificada</option>
+                    <option value="advertencia_verbal">Advertência Verbal</option>
+                    <option value="advertencia_escrita">Advertência Escrita</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Classificação</label>
+                  <select id="ocorr-classificacao" class="form-control">
+                    <option value="positiva">Positiva</option>
+                    <option value="neutra">Neutra</option>
+                    <option value="negativa">Negativa</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Data</label>
+                  <input type="date" id="ocorr-data" class="form-control" required />
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                  <label>Relato Detalhado</label>
+                  <textarea id="ocorr-descricao" rows="2" class="form-control" required></textarea>
+                </div>
+                <div>
+                  <button type="submit" class="btn-pill btn-primary">Registrar Ocorrência</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card" id="relatorio-comportamental-card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">Relatório de Ocorrências & Comportamento</h2>
+                  <p class="card-subtitle">Filtre por colaborador para emissão de relatório individual</p>
+                </div>
+                <div>
+                  <select id="filtro-ocorr-colab" class="form-control" style="min-width:220px;">
+                    <option value="">Todos os Colaboradores</option>
+                  </select>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="activity-table">
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Colaborador</th>
+                      <th>Tipo</th>
+                      <th>Classificação</th>
+                      <th>Descrição</th>
+                      <th>Registrado por</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ocorr-table-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="subtab-produtividade" class="hidden">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">Apontamento de Produtividade</h2>
+                  <p class="card-subtitle">Registre peças produzidas, metragem (m²), horas e qualidade por colaborador</p>
+                </div>
+              </div>
+              <form id="form-produtividade" class="form-grid">
+                <div class="form-group">
+                  <label>Colaborador</label>
+                  <select id="prod-colaborador" class="form-control" required></select>
+                </div>
+                <div class="form-group">
+                  <label>Etapa / Processo</label>
+                  <select id="prod-etapa" class="form-control">
+                    <option value="Corte">Corte</option>
+                    <option value="Lapidação">Lapidação</option>
+                    <option value="Furação / Recorte">Furação / Recorte</option>
+                    <option value="Têmpera">Têmpera</option>
+                    <option value="Instalação em Obra">Instalação em Obra</option>
+                    <option value="Expedição">Expedição</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Peças Produzidas</label>
+                  <input type="number" id="prod-pecas" class="form-control" value="0" />
+                </div>
+                <div class="form-group">
+                  <label>Metragem (m²)</label>
+                  <input type="number" step="0.01" id="prod-m2" class="form-control" value="0" />
+                </div>
+                <div class="form-group">
+                  <label>Horas Trabalhadas</label>
+                  <input type="number" step="0.5" id="prod-horas" class="form-control" value="8" />
+                </div>
+                <div class="form-group">
+                  <label>Retrabalho (peças)</label>
+                  <input type="number" id="prod-retrabalho" class="form-control" value="0" />
+                </div>
+                <div class="form-group">
+                  <label>Nota Qualidade (1 a 5)</label>
+                  <input type="number" min="1" max="5" id="prod-nota" class="form-control" value="5" />
+                </div>
+                <div class="form-group" style="display:flex; align-items:flex-end;">
+                  <button type="submit" class="btn-pill btn-primary btn-full">Lançar Produção</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">Ranking de Produtividade no Mês</h2>
+                  <p class="card-subtitle">Consolidado de m², peças entregues, retrabalho e índice de qualidade</p>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="activity-table">
+                  <thead>
+                    <tr>
+                      <th>Colaborador</th>
+                      <th>Setor</th>
+                      <th>Total m²</th>
+                      <th>Total Peças</th>
+                      <th>Horas</th>
+                      <th>Retrabalho</th>
+                      <th>Qualidade</th>
+                    </tr>
+                  </thead>
+                  <tbody id="prod-ranking-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 8. GERADOR DE CERTIFICADOS -->
+        <section id="section-certificados" class="hidden">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Gerador de Certificados FortalGlass</h2>
+                <p class="card-subtitle">Emita certificados oficiais de NRs ou treinamentos internos e atualize a validade no RH</p>
+              </div>
+            </div>
+            <form id="form-certificado">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Colaborador</label>
+                  <select id="cert-colaborador" class="form-control" required></select>
+                </div>
+                <div class="form-group">
+                  <label>NR Pré-Definida (ou Treinamento Livre)</label>
+                  <select id="cert-nr-select" class="form-control">
+                    <option value="">Treinamento Personalizado</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Título do Curso / NR no Certificado</label>
+                  <input type="text" id="cert-titulo" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Carga Horária (horas)</label>
+                  <input type="number" id="cert-carga" class="form-control" value="8" required />
+                </div>
+                <div class="form-group">
+                  <label>Data de Conclusão</label>
+                  <input type="date" id="cert-data" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Validade (meses)</label>
+                  <input type="number" id="cert-validade-meses" class="form-control" value="12" />
+                </div>
+                <div class="form-group">
+                  <label>Instrutor / Responsável Técnico</label>
+                  <input type="text" id="cert-instrutor" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Registro Profissional (CREA / MTE / TST)</label>
+                  <input type="text" id="cert-registro" class="form-control" />
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                  <label>Conteúdo Programático</label>
+                  <textarea id="cert-conteudo" rows="3" class="form-control"></textarea>
+                </div>
+              </div>
+              <button type="submit" class="btn-pill btn-gold">Emitir e Visualizar Certificado</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Certificados Emitidos</h2>
+                <p class="card-subtitle">Clique em Visualizar / Imprimir para abrir o certificado oficial</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Colaborador</th>
+                    <th>Curso / NR</th>
+                    <th>Conclusão</th>
+                    <th>Validade</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="cert-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 9. ADMINISTRAÇÃO: HIERARQUIA, PERMISSÕES & CONFIGURAÇÕES -->
+        <section id="section-admin_acessos" class="hidden">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Gestão de Usuários & Permissões por Setor (ADM)</h2>
+                <p class="card-subtitle">Defina quem pode acessar Financeiro, Administrativo/RH, Vendas, Produção ou Estoque</p>
+              </div>
+            </div>
+            <form id="form-usuario-adm">
+              <input type="hidden" id="adm-user-id" />
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Nome do Usuário</label>
+                  <input type="text" id="adm-user-nome" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Login de Acesso</label>
+                  <input type="text" id="adm-user-login" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Senha (deixe em branco p/ manter ao editar)</label>
+                  <input type="password" id="adm-user-senha" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>Setor Principal</label>
+                  <select id="adm-user-setor" class="form-control">
+                    <option value="diretoria">Diretoria / ADM</option>
+                    <option value="financeiro">Financeiro</option>
+                    <option value="administrativo">Administrativo / RH</option>
+                    <option value="vendas">Vendas / Comercial</option>
+                    <option value="producao">Produção</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Módulos Liberados para este Usuário:</label>
+                <div class="perm-grid">
+                  <label class="perm-item"><input type="checkbox" id="perm-financeiro" /> Financeiro (Caixa/Contas)</label>
+                  <label class="perm-item"><input type="checkbox" id="perm-administrativo" /> Administrativo</label>
+                  <label class="perm-item"><input type="checkbox" id="perm-rh" /> RH & Certificados</label>
+                  <label class="perm-item"><input type="checkbox" id="perm-vendas" /> Vendas / A Receber</label>
+                  <label class="perm-item"><input type="checkbox" id="perm-producao" /> Produção / Produtividade</label>
+                  <label class="perm-item"><input type="checkbox" id="perm-admin" /> Administrador Total (ADM)</label>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:10px;">
+                <button type="submit" class="btn-pill btn-primary">Salvar Usuário e Acessos</button>
+                <button type="button" class="btn-pill btn-outline" onclick="resetFormUsuarioAdm()">Novo Usuário</button>
+              </div>
+            </form>
+
+            <div class="table-responsive" style="margin-top:20px;">
+              <table class="activity-table">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Login</th>
+                    <th>Setor</th>
+                    <th>Acessos Liberados</th>
+                    <th>Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="adm-usuarios-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="charts-grid">
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">Saldo Inicial do Caixa</h2>
+                  <p class="card-subtitle">Base inicial para o cálculo do saldo atual</p>
+                </div>
+              </div>
+              <form id="form-saldo-inicial" class="form-grid">
+                <div class="form-group">
+                  <label>Saldo Inicial (R$)</label>
+                  <input type="number" step="0.01" id="cfg-saldo-inicial" class="form-control" required />
+                </div>
+                <div class="form-group" style="display:flex; align-items:flex-end;">
+                  <button type="submit" class="btn-pill btn-primary">Atualizar Saldo Inicial</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title">Nova Categoria Financeira</h2>
+                  <p class="card-subtitle">Organize receitas e despesas nos gráficos</p>
+                </div>
+              </div>
+              <form id="form-categoria" class="form-grid">
+                <div class="form-group">
+                  <label>Nome da Categoria</label>
+                  <input type="text" id="cat-nome" class="form-control" required />
+                </div>
+                <div class="form-group">
+                  <label>Cor no Gráfico</label>
+                  <input type="color" id="cat-cor" class="form-control" value="#034C53" style="height:42px;" />
+                </div>
+                <div class="form-group" style="display:flex; align-items:flex-end;">
+                  <button type="submit" class="btn-pill btn-primary">Adicionar</button>
+                </div>
+              </form>
+            </div>
           </div>
         </section>
       </main>
+    </div>
+  </div>
+
+  <!-- MODAL: CERTIFICADO OFICIAL FORTALGLASS -->
+  <div id="modal-certificado" class="modal-backdrop hidden">
+    <div class="modal-box modal-box-lg">
+      <div class="card-header no-print">
+        <h3 class="card-title">Visualização do Certificado</h3>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn-pill btn-gold btn-sm" onclick="window.print()">Imprimir / Salvar PDF</button>
+          <button type="button" class="btn-pill btn-outline btn-sm" onclick="fecharModal('modal-certificado')">Fechar</button>
+        </div>
+      </div>
+
+      <div id="printable-area">
+        <div class="certificate-sheet">
+          <div class="cert-header">
+            <img src="assets/logo-fortalglass.png" alt="FortalGlass" />
+          </div>
+          <div class="cert-title">Certificado de Capacitação</div>
+          <div class="cert-body">
+            Certificamos para os devidos fins que<br />
+            <span id="cert-view-nome" class="cert-highlight">Nome do Colaborador</span><br />
+            <span id="cert-view-doc" style="font-size:0.85rem; color:var(--text-muted);"></span><br />
+            concluiu com aproveitamento o treinamento de<br />
+            <strong id="cert-view-curso" style="font-size:1.15rem; color:var(--primary);">Curso / NR</strong><br />
+            realizado em <strong id="cert-view-data">00/00/0000</strong>, com carga horária total de
+            <strong id="cert-view-carga">8 horas</strong>.<br />
+            <span id="cert-view-validade" style="font-size:0.85rem; color:var(--text-muted);"></span>
+          </div>
+
+          <div id="cert-view-programa-box" class="cert-program">
+            <strong>Conteúdo Programático:</strong>
+            <p id="cert-view-programa" style="margin-top:4px;"></p>
+          </div>
+
+          <div class="cert-signatures">
+            <div>
+              <div class="cert-sig-line">
+                <span id="cert-view-instrutor">Instrutor Responsável</span><br />
+                <span id="cert-view-registro" style="font-weight:400; font-size:0.75rem;"></span>
+              </div>
+            </div>
+            <div>
+              <div class="cert-sig-line">
+                FortalGlass Indústria e Comércio de Vidros<br />
+                <span style="font-weight:400; font-size:0.75rem;">Diretoria / Segurança do Trabalho</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cert-code">
+            Código de Autenticidade: <strong id="cert-view-codigo">FG-0000</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: LEITOR / TRANSCRIÇÃO DE DOCUMENTOS E NF -->
+  <div id="modal-ocr-global" class="modal-backdrop hidden">
+    <div class="modal-box">
+      <div class="card-header">
+        <div>
+          <h3 class="card-title">Leitor & Transcrição de NF e Documentos</h3>
+          <p class="card-subtitle">Extraia dados de XML, PDF ou foto (RG, CPF, NF, Boleto) e envie direto para o módulo</p>
+        </div>
+        <button type="button" class="btn-pill btn-outline btn-sm" onclick="fecharModal('modal-ocr-global')">Fechar</button>
+      </div>
+
+      <div class="form-group">
+        <label>Selecione o arquivo (XML NF-e, PDF ou Imagem JPG/PNG)</label>
+        <input type="file" id="global-ocr-file" accept=".xml,.pdf,image/*" class="form-control" />
+      </div>
+
+      <div id="global-ocr-status" style="font-size:0.82rem; font-weight:600; color:var(--primary); margin-bottom:12px;"></div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nome / Fornecedor Detectado</label>
+          <input type="text" id="ocr-res-nome" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>CNPJ ou CPF Detectado</label>
+          <input type="text" id="ocr-res-doc" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Nº NF / Documento</label>
+          <input type="text" id="ocr-res-nf" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Valor Total Detectado (R$)</label>
+          <input type="text" id="ocr-res-valor" class="form-control" />
+        </div>
+        <div class="form-group">
+          <label>Data / Vencimento Detectado</label>
+          <input type="date" id="ocr-res-data" class="form-control" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Texto Transcrito Completo</label>
+        <textarea id="ocr-res-texto" rows="4" class="form-control"></textarea>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button type="button" class="btn-pill btn-primary btn-sm" onclick="aplicarOcrEmContasPagar()">
+          Usar em Contas a Pagar
+        </button>
+        <button type="button" class="btn-pill btn-gold btn-sm" onclick="aplicarOcrEmColaborador()">
+          Usar em Cadastro de Colaborador (RH)
+        </button>
+      </div>
     </div>
   </div>
 
