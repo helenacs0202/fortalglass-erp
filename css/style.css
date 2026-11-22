@@ -226,32 +226,33 @@ body {
   min-height: 100vh;
 }
 
-.sidebar {
-  width: 265px;
-  background-color: var(--primary);
-  color: #FFFFFF;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-x: hidden;
-}
-
-/* Caixa fixa no topo; logo centralizada e proporcional */
+/* Caixa fixa no topo; logo centralizada e em destaque */
 .sidebar-header,
 .sidebar-brand {
-  height: 92px;
-  min-height: 92px;
-  max-height: 92px;
-  padding: 10px 20px;
+  height: 100px;
+  min-height: 100px;
+  max-height: 100px;
+  padding: 6px 12px;
   background-color: var(--primary-logo);
   border-bottom: 3px solid var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+
+.sidebar-header img,
+.sidebar-brand img,
+.brand-logo {
+  width: auto;
+  max-width: 230px;
+  max-height: 82px;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  transform: scale(1.32);
+  transform-origin: center center;
 }
 
 .sidebar-header img,
