@@ -12,181 +12,97 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
-    /* Tela de login compactada verticalmente para caber 100% na viewport + vidro arquitetônico sutil e moderno */
+    /* Fundo limpo (sem efeito de vidro) e painel ocupando quase toda a altura da janela */
     #login-view.login-wrapper {
-      position: relative;
       min-height: 100vh;
       height: 100vh;
       max-height: 100vh;
       overflow-y: auto;
-      overflow-x: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 12px 24px;
+      padding: 10px 24px;
       box-sizing: border-box;
-      background:
-        radial-gradient(ellipse 70% 55% at 18% 20%, rgba(12, 92, 100, 0.34) 0%, transparent 70%),
-        radial-gradient(ellipse 60% 50% at 85% 82%, rgba(212, 160, 23, 0.05) 0%, transparent 65%),
-        linear-gradient(135deg, #01262B 0%, #02353B 55%, #022024 100%);
     }
 
-    /* Lâmina arquitetônica 1 (diagonal superior esquerda - reflexo especular fino) */
-    #login-view.login-wrapper::before {
-      content: "";
-      position: fixed;
-      top: -18%;
-      left: -10%;
-      width: 54vw;
-      height: 78vh;
-      border-radius: 36px;
-      transform: rotate(-16deg);
-      background: linear-gradient(
-        125deg,
-        rgba(255, 255, 255, 0.026) 0%,
-        rgba(255, 255, 255, 0.008) 38%,
-        rgba(255, 255, 255, 0.00) 70%
-      );
-      border: 1px solid rgba(255, 255, 255, 0.042);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* Lâmina arquitetônica 2 (diagonal inferior direita - camada sobreposta) */
-    #login-view.login-wrapper::after {
-      content: "";
-      position: fixed;
-      bottom: -20%;
-      right: -8%;
-      width: 52vw;
-      height: 74vh;
-      border-radius: 40px;
-      transform: rotate(-16deg);
-      background: linear-gradient(
-        310deg,
-        rgba(255, 255, 255, 0.024) 0%,
-        rgba(212, 160, 23, 0.014) 32%,
-        rgba(255, 255, 255, 0.00) 68%
-      );
-      border: 1px solid rgba(255, 255, 255, 0.038);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* Painel flutuante centralizado deslocado (efeito duplo vidro moderno) */
-    .glass-arch-layer {
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      width: min(86vw, 960px);
-      height: min(82vh, 660px);
-      transform: translate(-50%, -50%) rotate(-3deg);
-      border-radius: 32px;
-      background: linear-gradient(
-        145deg,
-        rgba(255, 255, 255, 0.018) 0%,
-        rgba(255, 255, 255, 0.003) 50%,
-        rgba(255, 255, 255, 0.014) 100%
-      );
-      border: 1px solid rgba(255, 255, 255, 0.045);
-      box-shadow:
-        0 30px 80px rgba(0, 0, 0, 0.22),
-        inset 0 1px 0 rgba(255, 255, 255, 0.065);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* Card de login: largura original (420px) preservada, apenas altura compactada para caber sem scroll */
     #login-view .login-card {
-      position: relative;
-      z-index: 1;
       width: 100%;
       max-width: 420px;
-      padding: 20px 36px 20px 36px !important;
-      margin: auto;
+      min-height: calc(100vh - 20px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 36px 36px 32px 36px !important;
+      margin: 0 auto;
+      box-sizing: border-box;
     }
 
     #login-view .login-brand {
-      margin-bottom: 10px !important;
+      margin-bottom: 18px !important;
     }
 
     #login-view .login-brand p {
-      font-size: 0.85rem !important;
-      line-height: 1.32 !important;
+      font-size: 0.92rem !important;
+      line-height: 1.4 !important;
       max-width: 300px !important;
-      margin: 0 auto 10px auto !important;
+      margin: 0 auto 18px auto !important;
     }
 
     #login-view .login-brand img {
-      max-width: 225px !important;
-      max-height: 112px;
-      object-fit: contain;
+      max-width: 280px !important;
+      height: auto;
+    }
+
+    #login-view #login-form {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     #login-view #login-form .form-group {
-      margin-bottom: 11px !important;
+      margin-bottom: 18px !important;
     }
 
     #login-view #login-form label {
-      margin-bottom: 4px !important;
-      font-size: 0.84rem !important;
+      margin-bottom: 7px !important;
     }
 
     #login-view #login-form .form-control {
-      height: 40px !important;
-      padding: 7px 14px !important;
-      font-size: 0.92rem !important;
+      height: 46px !important;
     }
 
     #login-view #login-submit {
-      height: 42px !important;
-      margin-top: 2px;
+      height: 48px !important;
+      margin-top: 6px;
     }
 
     #login-view .login-register-footer {
-      margin-top: 13px !important;
-      padding-top: 11px !important;
+      margin-top: 24px !important;
+      padding-top: 18px !important;
       border-top: 1px solid rgba(255, 255, 255, 0.16);
       text-align: center;
     }
 
     #login-view .login-register-footer p {
       color: #CBD5E1;
-      font-size: 0.8rem !important;
-      margin: 0 0 8px 0 !important;
+      font-size: 0.84rem !important;
+      margin: 0 0 12px 0 !important;
     }
 
     #login-view #btn-show-register {
-      height: 39px !important;
-      font-size: 0.86rem !important;
+      height: 44px !important;
     }
 
-    /* Quando o formulário de cadastro abrir, libera altura fluida */
+    /* Quando o formulário de cadastro abrir, permite altura fluida */
     #login-view.register-open {
       height: auto;
       max-height: none;
-      padding: 20px 24px;
+      padding: 16px 24px;
     }
 
-    @media (max-height: 650px) {
-      #login-view .login-brand img {
-        max-width: 185px !important;
-        max-height: 88px;
-      }
-      #login-view .login-card {
-        padding: 15px 32px !important;
-      }
-      #login-view #login-form .form-group {
-        margin-bottom: 8px !important;
-      }
+    #login-view.register-open .login-card {
+      min-height: auto;
     }
   </style>
 </head>
@@ -194,8 +110,6 @@
 
   <!-- TELA DE LOGIN & SOLICITAÇÃO DE CONTA -->
   <div id="login-view" class="login-wrapper">
-    <div class="glass-arch-layer" aria-hidden="true"></div>
-
     <div class="login-card">
       <div class="login-brand" style="text-align:center;">
         <p style="color:#E2E8F0; font-weight:500;">
