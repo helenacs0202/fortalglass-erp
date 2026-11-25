@@ -88,6 +88,19 @@
       </nav>
 
       <div class="sidebar-footer">
+        <div class="sidebar-user-card">
+          <label for="input-foto-perfil" class="sidebar-avatar" title="Clique para alterar sua foto de perfil">
+            <img id="sidebar-user-avatar" src="" alt="Avatar" style="display:none;">
+            <span id="sidebar-user-initials">GS</span>
+            <div class="avatar-overlay">📷</div>
+          </label>
+          <input type="file" id="input-foto-perfil" accept="image/*" hidden>
+          
+          <div class="sidebar-user-info">
+            <strong id="sidebar-user-name">Gean Sales</strong>
+            <span id="sidebar-user-role" class="badge-adm">ADM</span>
+          </div>
+        </div>
         FortalGlass ERP · v3.0
       </div>
     </aside>
@@ -98,19 +111,10 @@
           <h1 id="page-title">VISÃO GERAL</h1>
           <p id="page-subtitle">Indicadores financeiros, vencimentos e alertas de NRs</p>
         </div>
-
-        <div class="topbar-actions">
-          <button id="btn-open-ocr-global" class="btn-pill btn-gold btn-sm">
-            Transcrever Foto de NF / Doc
-          </button>
-          <div class="user-chip">
-            <span id="topbar-user-name" class="user-name">Usuário</span>
-            <span id="topbar-user-role" class="role-badge">Perfil</span>
-          </div>
+<div class="topbar-actions">
           <button id="btn-logout" class="btn-pill btn-outline btn-sm">Sair</button>
         </div>
       </header>
-
       <main class="content-area">
         <!-- 1. VISÃO GERAL (DASHBOARD) -->
         <section id="section-dashboard">
