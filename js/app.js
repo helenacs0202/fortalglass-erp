@@ -11,18 +11,13 @@ const STATE = {
 };
 
 const MODULE_INFO = {
-  dashboard: { title: 'Visão Geral', subtitle: 'Indicadores financeiros, vencimentos, ASOs e alertas de NRs' },
-  fluxo: { title: 'Fluxo de Caixa', subtitle: 'Extrato consolidado e lançamentos avulsos' },
-  receber: { title: 'Contas a Receber', subtitle: 'Serviços comerciais, parcelas e controle de Nota Fiscal' },
-  pagar: { title: 'Contas a Pagar', subtitle: 'Despesas, rateio, transcrição por foto de NF e comprovantes no R2' },
-  rh_colaboradores: { title: 'Colaboradores & NRs', subtitle: 'Ficha cadastral, salários, documentos e NRs pré-definidas' },
-  pastas_funcionarios: { title: 'Pasta dos Funcionários', subtitle: 'Prontuário individual, foto, documentos obrigatórios, ASOs, NRs e certificados por colaborador' },
-  rh_folha: { title: 'Vales & Folha de Pagamento', subtitle: 'Adiantamentos, comissões e fechamento mensal' },
-  rh_comportamento: { title: 'Comportamento & Produtividade', subtitle: 'Relatórios disciplinares e desempenho da equipe' },
-  certificados: { title: 'Gerador de Certificados', subtitle: 'Emissão oficial de certificados de NRs e treinamentos' },
-  sst: { title: 'SST: ASOs & Treinamentos', subtitle: 'Exames ocupacionais (PCMSO), matriz de NRs obrigatórias e prontuário digital' },
-  acervo: { title: 'Acervo Digital (Papel)', subtitle: 'Digitalização em lote com leitura OCR automática e busca inteligente' },
-  admin_acessos: { title: 'Acessos & Configurações (ADM)', subtitle: 'Hierarquia de usuários, normas, matriz SST, saldo inicial e categorias' }
+  dashboard: { title: 'VISÃO GERAL', subtitle: 'Indicadores financeiros, vencimentos, ASOs e alertas de NRs' },
+  financeiro_hub: { title: 'GESTÃO FINANCEIRA', subtitle: 'Fluxo de caixa, contas a receber e contas a pagar com leitura de NF' },
+  equipe_hub: { title: 'EQUIPE & PRONTUÁRIOS', subtitle: 'Pastas individuais dos funcionários, cadastro da equipe e documentos/NRs' },
+  folha_desempenho_hub: { title: 'FOLHA & DESEMPENHO', subtitle: 'Vales, fechamento da folha mensal, comportamento e produtividade' },
+  sst_certificados_hub: { title: 'SST & CERTIFICADOS', subtitle: 'Exames ocupacionais (ASOs), matriz de NRs obrigatórias e emissão de certificados' },
+  acervo: { title: 'ACERVO DIGITAL', subtitle: 'Digitalização em lote com leitura OCR automática e busca inteligente' },
+  admin_acessos: { title: 'ACESSOS & CONFIGURAÇÕES', subtitle: 'Hierarquia de usuários, normas, matriz SST, saldo inicial e auditoria' }
 };
 
 function formatBRL(val) {
@@ -61,8 +56,14 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
+function abrirModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('hidden');
+}
+
 function fecharModal(id) {
-  document.getElementById(id).classList.add('hidden');
+  const el = document.getElementById(id);
+  if (el) el.classList.add('hidden');
 }
 
 /* ================= LOGIN & SESSÃO ================= */
@@ -80,6 +81,7 @@ function showApp(user) {
   document.getElementById('topbar-user-role').textContent =
     user.perfil === 'admin' ? 'ADM' : (user.setor || 'Equipe');
 
+  // Oculta menus, seções e botões que o usuário não tem permissão para ver
   document.querySelectorAll('[data-perm]').forEach(el => {
     if (userHasPerm(el.dataset.perm)) {
       el.classList.remove('hidden');
@@ -87,6 +89,13 @@ function showApp(user) {
       el.classList.add('hidden');
     }
   });
+
+  // Se o usuário NÃO tem permissão financeira, exibe o painel operacional na Visão Geral
+  const temFin = userHasPerm('financeiro');
+  const finBlock = document.getElementById('dashboard-financeiro-block');
+  const opBlock = document.getElementById('dashboard-operacional-block');
+  if (finBlock) finBlock.classList.toggle('hidden', !temFin);
+  if (opBlock) opBlock.classList.toggle('hidden', temFin);
 
   switchModule('dashboard');
 }
@@ -138,6 +147,15 @@ function handleLogout() {
   showLogin();
 }
 
+function ativarPrimeiraAbaVisivel(containerSelector, attrName) {
+  const btns = [...document.querySelectorAll(`${containerSelector} [${attrName}]`)].filter(
+    b => !b.classList.contains('hidden')
+  );
+  if (btns.length === 0) return;
+  const activeVisible = btns.find(b => b.classList.contains('active'));
+  (activeVisible || btns[0]).click();
+}
+
 function switchModule(moduleKey) {
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.module === moduleKey);
@@ -152,12 +170,27 @@ function switchModule(moduleKey) {
   if (target) target.classList.remove('hidden');
 
   if (moduleKey === 'dashboard') loadDashboard();
-  if (moduleKey === 'fluxo' || moduleKey === 'receber' || moduleKey === 'pagar') loadFinanceiro();
-  if (moduleKey.startsWith('rh_') || moduleKey === 'certificados') loadRH();
-  if (moduleKey === 'pastas_funcionarios') loadPastasFuncionarios();
-  if (moduleKey === 'sst') loadSST();
+  if (moduleKey === 'financeiro_hub') {
+    ativarPrimeiraAbaVisivel('#section-financeiro_hub', 'data-fintab');
+    loadFinanceiro();
+  }
+  if (moduleKey === 'equipe_hub') {
+    ativarPrimeiraAbaVisivel('#section-equipe_hub', 'data-eqtab');
+    loadPastasFuncionarios();
+    loadRH();
+  }
+  if (moduleKey === 'folha_desempenho_hub') {
+    ativarPrimeiraAbaVisivel('#section-folha_desempenho_hub', 'data-fdtab');
+    loadRH();
+  }
+  if (moduleKey === 'sst_certificados_hub') {
+    ativarPrimeiraAbaVisivel('#section-sst_certificados_hub', 'data-ssttab');
+    loadSST();
+    loadRH();
+  }
   if (moduleKey === 'acervo') loadAcervo();
   if (moduleKey === 'admin_acessos') {
+    ativarPrimeiraAbaVisivel('#section-admin_acessos', 'data-admtab');
     loadAdmin();
     loadSST();
   }
@@ -165,69 +198,85 @@ function switchModule(moduleKey) {
 
 /* ================= DASHBOARD ================= */
 async function loadDashboard() {
+  const temFin = userHasPerm('financeiro');
+
   try {
     const [dash, rhAlertas, sstAlertas] = await Promise.all([
-      apiFetch('/api/dashboard'),
+      temFin ? apiFetch('/api/dashboard').catch(() => null) : Promise.resolve(null),
       apiFetch('/api/rh?resumo_alertas=1').catch(() => ({ nrs_alerta: [] })),
-      apiFetch('/api/sst?action=resumo_alertas').catch(() => ({ asos_pendentes: [] }))
+      apiFetch('/api/sst?action=overview').catch(() => ({ asos_pendentes: [], colaboradores: [] }))
     ]);
-
-    const { kpis, alertas, fluxo_mensal, maiores_categorias, atividades_recentes } = dash;
-
-    document.getElementById('kpi-saldo-atual').textContent = formatBRL(kpis.saldo_atual);
-    document.getElementById('kpi-saldo-inicial').textContent = `Saldo inicial: ${formatBRL(kpis.saldo_inicial)}`;
-
-    const projEl = document.getElementById('kpi-projecao');
-    projEl.textContent = formatBRL(kpis.projecao_30_dias);
-    projEl.className = `kpi-value ${kpis.projecao_30_dias >= 0 ? 'text-success' : 'text-danger'}`;
-
-    document.getElementById('kpi-receber').textContent = formatBRL(kpis.total_a_receber);
-    document.getElementById('kpi-nf-pendente').textContent = `${kpis.nf_pendente_qtd} parcela(s) aguardando NF`;
-    document.getElementById('kpi-pagar').textContent = formatBRL(kpis.total_a_pagar);
 
     const alertContainer = document.getElementById('dashboard-alerts');
     alertContainer.innerHTML = '';
 
-    if (alertas.projecao_negativa) {
-      alertContainer.innerHTML += `<div class="alert-banner alert-danger"><span><strong>Atenção no Caixa:</strong> A projeção para os próximos 30 dias está negativa.</span></div>`;
+    if (temFin && dash) {
+      const { kpis, alertas, fluxo_mensal, maiores_categorias, atividades_recentes } = dash;
+
+      document.getElementById('kpi-saldo-atual').textContent = formatBRL(kpis.saldo_atual);
+      document.getElementById('kpi-saldo-inicial').textContent = `Saldo inicial: ${formatBRL(kpis.saldo_inicial)}`;
+
+      const projEl = document.getElementById('kpi-projecao');
+      projEl.textContent = formatBRL(kpis.projecao_30_dias);
+      projEl.className = `kpi-value ${kpis.projecao_30_dias >= 0 ? 'text-success' : 'text-danger'}`;
+
+      document.getElementById('kpi-receber').textContent = formatBRL(kpis.total_a_receber);
+      document.getElementById('kpi-nf-pendente').textContent = `${kpis.nf_pendente_qtd} parcela(s) aguardando NF`;
+      document.getElementById('kpi-pagar').textContent = formatBRL(kpis.total_a_pagar);
+
+      if (alertas.projecao_negativa) {
+        alertContainer.innerHTML += `<div class="alert-banner alert-danger"><span><strong>Atenção no Caixa:</strong> A projeção para os próximos 30 dias está negativa.</span></div>`;
+      }
+      if (alertas.contas_proximas_qtd > 0) {
+        alertContainer.innerHTML += `<div class="alert-banner alert-warning"><span><strong>Contas a Pagar Vencendo:</strong> ${alertas.contas_proximas_qtd} conta(s) somando ${formatBRL(alertas.contas_proximas_valor)}.</span></div>`;
+      }
+      if (alertas.nf_pendente_qtd > 0) {
+        alertContainer.innerHTML += `<div class="alert-banner alert-info"><span><strong>Faturamento Pendente:</strong> ${alertas.nf_pendente_qtd} parcela(s) aguardando emissão de NF (${formatBRL(alertas.nf_pendente_valor)}).</span></div>`;
+      }
+
+      renderDashboardCharts(fluxo_mensal, maiores_categorias);
+
+      const tbody = document.getElementById('recent-activities-body');
+      if (!atividades_recentes || atividades_recentes.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:20px;">Nenhuma movimentação registrada ainda.</td></tr>`;
+      } else {
+        tbody.innerHTML = atividades_recentes.map(item => {
+          const isServ = item.origem === 'servico';
+          return `
+            <tr>
+              <td><span class="status-pill ${isServ ? 'pill-blue' : 'pill-amber'}">${isServ ? 'Serviço' : 'Despesa'}</span></td>
+              <td><strong>${item.titulo}</strong></td>
+              <td class="${isServ ? 'text-success' : 'text-danger'}" style="font-weight:600;">${isServ ? '+' : '-'} ${formatBRL(item.valor)}</td>
+              <td><span class="status-pill ${item.status === 'pago' ? 'pill-green' : 'pill-amber'}">${item.status}</span></td>
+            </tr>`;
+        }).join('');
+      }
+    } else {
+      // Preenche os KPIs operacionais para quem não é do Financeiro
+      const ativosQtd = (sstAlertas.colaboradores || []).filter(c => c.status === 'ativo').length;
+      const asosQtd = (sstAlertas.asos_pendentes || []).length;
+      const nrsQtd = (rhAlertas.nrs_alerta || []).length;
+      const opAtivos = document.getElementById('kpi-op-ativos');
+      const opAsos = document.getElementById('kpi-op-asos');
+      const opNrs = document.getElementById('kpi-op-nrs');
+      if (opAtivos) opAtivos.textContent = ativosQtd;
+      if (opAsos) opAsos.textContent = asosQtd;
+      if (opNrs) opNrs.textContent = nrsQtd;
     }
-    if (alertas.contas_proximas_qtd > 0) {
-      alertContainer.innerHTML += `<div class="alert-banner alert-warning"><span><strong>Contas a Pagar Vencendo:</strong> ${alertas.contas_proximas_qtd} conta(s) somando ${formatBRL(alertas.contas_proximas_valor)}.</span></div>`;
-    }
-    if (alertas.nf_pendente_qtd > 0) {
-      alertContainer.innerHTML += `<div class="alert-banner alert-info"><span><strong>Faturamento Pendente:</strong> ${alertas.nf_pendente_qtd} parcela(s) aguardando emissão de NF (${formatBRL(alertas.nf_pendente_valor)}).</span></div>`;
-    }
-    if (sstAlertas.asos_pendentes && sstAlertas.asos_pendentes.length > 0) {
+
+    if (sstAlertas.asos_pendentes && sstAlertas.asos_pendentes.length > 0 && userHasPerm('rh,administrativo,producao')) {
       const listaAsos = sstAlertas.asos_pendentes
         .slice(0, 3)
         .map(a => `${a.colaborador_nome} (${a.motivo})`)
         .join('; ');
-      alertContainer.innerHTML += `<div class="alert-banner alert-danger" style="cursor:pointer;" onclick="switchModule('sst')"><span><strong>Alerta SST (ASOs):</strong> ${sstAlertas.asos_pendentes.length} exame(s) a fazer ou vencido(s): ${listaAsos}.</span></div>`;
+      alertContainer.innerHTML += `<div class="alert-banner alert-danger" style="cursor:pointer;" onclick="switchModule('sst_certificados_hub')"><span><strong>Alerta SST (ASOs):</strong> ${sstAlertas.asos_pendentes.length} exame(s) a fazer ou vencido(s): ${listaAsos}.</span></div>`;
     }
-    if (rhAlertas.nrs_alerta && rhAlertas.nrs_alerta.length > 0) {
+    if (rhAlertas.nrs_alerta && rhAlertas.nrs_alerta.length > 0 && userHasPerm('rh,administrativo,producao')) {
       const lista = rhAlertas.nrs_alerta
         .slice(0, 3)
         .map(n => `${n.colaborador_nome} (${n.codigo_nr || n.titulo} · ${formatDateBR(n.data_validade)})`)
         .join(', ');
-      alertContainer.innerHTML += `<div class="alert-banner alert-warning" style="cursor:pointer;" onclick="switchModule('sst')"><span><strong>Alerta de NRs / Treinamentos:</strong> ${rhAlertas.nrs_alerta.length} vencido(s) ou vencendo em 30 dias: ${lista}.</span></div>`;
-    }
-
-    renderDashboardCharts(fluxo_mensal, maiores_categorias);
-
-    const tbody = document.getElementById('recent-activities-body');
-    if (!atividades_recentes || atividades_recentes.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:20px;">Nenhuma movimentação registrada ainda.</td></tr>`;
-    } else {
-      tbody.innerHTML = atividades_recentes.map(item => {
-        const isServ = item.origem === 'servico';
-        return `
-          <tr>
-            <td><span class="status-pill ${isServ ? 'pill-blue' : 'pill-amber'}">${isServ ? 'Serviço' : 'Despesa'}</span></td>
-            <td><strong>${item.titulo}</strong></td>
-            <td class="${isServ ? 'text-success' : 'text-danger'}" style="font-weight:600;">${isServ ? '+' : '-'} ${formatBRL(item.valor)}</td>
-            <td><span class="status-pill ${item.status === 'pago' ? 'pill-green' : 'pill-amber'}">${item.status}</span></td>
-          </tr>`;
-      }).join('');
+      alertContainer.innerHTML += `<div class="alert-banner alert-warning" style="cursor:pointer;" onclick="switchModule('sst_certificados_hub')"><span><strong>Alerta de NRs / Treinamentos:</strong> ${rhAlertas.nrs_alerta.length} vencido(s) ou vencendo em 30 dias: ${lista}.</span></div>`;
     }
   } catch (err) {
     console.error(err);
@@ -419,22 +468,24 @@ async function loadRH() {
 
     document.getElementById('docs-table-body').innerHTML = data.documentos.length === 0
       ? `<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum documento ou NR registrado.</td></tr>`
-      : data.documentos.map(d => {
-        const badgeClass = d.status_validade === 'vencido'
-          ? 'pill-red'
-          : d.status_validade === 'vencendo'
-            ? 'pill-amber'
-            : 'pill-green';
-        return `
-          <tr>
-            <td><strong>${d.colaborador_nome}</strong></td>
-            <td>${d.codigo_nr ? `<span class="status-pill pill-teal">${d.codigo_nr}</span> ` : ''}${d.titulo}</td>
-            <td>${formatDateBR(d.data_emissao)}</td>
-            <td>${formatDateBR(d.data_validade)}</td>
-            <td><span class="status-pill ${badgeClass}">${d.status_validade}</span></td>
-            <td>${d.arquivo_url ? `<a href="${d.arquivo_url}" target="_blank" class="btn-pill btn-outline btn-sm">Abrir</a>` : '-'}</td>
-          </tr>`;
-      }).join('');
+      : data.documentos
+        .filter(d => d.tipo_documento !== 'foto_perfil')
+        .map(d => {
+          const badgeClass = d.status_validade === 'vencido'
+            ? 'pill-red'
+            : d.status_validade === 'vencendo'
+              ? 'pill-amber'
+              : 'pill-green';
+          return `
+            <tr>
+              <td><strong>${d.colaborador_nome}</strong></td>
+              <td>${d.codigo_nr ? `<span class="status-pill pill-teal">${d.codigo_nr}</span> ` : ''}${d.titulo}</td>
+              <td>${formatDateBR(d.data_emissao)}</td>
+              <td>${formatDateBR(d.data_validade)}</td>
+              <td><span class="status-pill ${badgeClass}">${d.status_validade}</span></td>
+              <td>${d.arquivo_url ? `<a href="${d.arquivo_url}" target="_blank" class="btn-pill btn-outline btn-sm">Abrir</a>` : '-'}</td>
+            </tr>`;
+        }).join('');
 
     document.getElementById('folha-table-body').innerHTML = data.folha.length === 0
       ? `<tr><td colspan="8" style="text-align:center; padding:20px; color:var(--text-muted);">Nenhum colaborador ativo para fechamento.</td></tr>`
@@ -539,7 +590,7 @@ function editarColaborador(id) {
   document.getElementById('colab-pix').value = c.chave_pix || '';
   document.getElementById('colab-comissao1').value = c.comissao_faixa1_pct || 0;
   document.getElementById('colab-status').value = c.status || 'ativo';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  abrirModal('modal-colaborador');
 }
 
 function resetFormColaborador() {
@@ -550,7 +601,7 @@ function resetFormColaborador() {
 async function fecharFolhaColab(colabId) {
   const item = STATE.rh?.folha.find(f => f.colaborador_id === colabId);
   if (!item) return;
-  const lancarCp = confirm(`Confirmar pagamento líquido de ${formatBRL(item.valor_liquido)} para ${item.nome}?\n\nClique em OK para fechar a folha e lançar automaticamente como despesa paga no Financeiro.`);
+  const lancarCp = confirm(`Confirmar pagamento líquido de ${formatBRL(item.valor_liquido)} para ${item.nome}?\n\nClique em OK para fechar a folha e lançar automaticamente como despesa paga no Fluxo de Caixa.`);
   if (!lancarCp) return;
 
   try {
@@ -578,7 +629,7 @@ function abrirCertificado(certId) {
   const cert = STATE.rh?.certificados.find(c => c.id === certId);
   if (!cert) return;
   preencherModalCertificado(cert);
-  document.getElementById('modal-certificado').classList.remove('hidden');
+  abrirModal('modal-certificado');
 }
 
 function preencherModalCertificado(cert) {
@@ -686,7 +737,25 @@ async function loadSST() {
     }
 
     const ativos = sstData.colaboradores.filter(c => c.status === 'ativo');
+    let somaPctPastas = 0;
+    const tiposDoc = sstData.tipos_doc_rh || [];
+
     for (const colab of ativos) {
+      // Calcula completude da pasta para o KPI
+      if (tiposDoc.length > 0) {
+        const docsC = docsRh.filter(d => d.colaborador_id === colab.id);
+        const acervoC = (sstData.acervo || []).filter(a => a.colaborador_id === colab.id);
+        let feitos = 0;
+        tiposDoc.forEach(td => {
+          const chave = td.nome.toLowerCase().slice(0, 8);
+          if (docsC.some(d => d.titulo.toLowerCase().includes(chave)) ||
+              acervoC.some(a => `${a.titulo} ${a.texto_ocr || ''}`.toLowerCase().includes(chave))) {
+            feitos++;
+          }
+        });
+        somaPctPastas += Math.round((feitos / tiposDoc.length) * 100);
+      }
+
       const setorColab = (colab.setor || 'geral').toLowerCase();
       const regrasSetor = sstData.matriz_nrs.filter(
         m => m.setor.toLowerCase() === setorColab || m.setor.toLowerCase() === 'geral'
@@ -731,16 +800,16 @@ async function loadSST() {
     const nrsCriticos = pendencias.filter(p => p.tipo === 'Treinamento NR' && p.situacao !== 'valido').length;
     const kpiAsosEl = document.getElementById('sst-kpi-asos');
     const kpiNrsEl = document.getElementById('sst-kpi-nrs');
+    const kpiPastasEl = document.getElementById('sst-kpi-pastas');
     if (kpiAsosEl) kpiAsosEl.textContent = asosCriticos;
     if (kpiNrsEl) kpiNrsEl.textContent = nrsCriticos;
+    if (kpiPastasEl) kpiPastasEl.textContent = ativos.length ? `${Math.round(somaPctPastas / ativos.length)}%` : '0%';
 
     renderSstPendencias();
     renderSstAsosTable(sstData.asos);
-    renderProntuarioChecklist(ativos, sstData.tipos_doc_rh, docsRh, sstData.acervo);
     renderAdminAutonomia(sstData);
   } catch (err) {
     console.error(err);
-    alert('Erro ao carregar dados de SST: ' + err.message);
   }
 }
 
@@ -788,7 +857,7 @@ function prepararAsoRapido(colabId) {
   const dtVal = new Date();
   dtVal.setFullYear(dtVal.getFullYear() + 1);
   document.getElementById('aso-data-validade').value = dtVal.toISOString().slice(0, 10);
-  document.getElementById('form-sst-aso').scrollIntoView({ behavior: 'smooth' });
+  abrirModal('modal-aso');
 }
 
 function prepararTreinamentoRapido(colabId, nrId) {
@@ -797,7 +866,7 @@ function prepararTreinamentoRapido(colabId, nrId) {
   document.querySelectorAll('input[name="turma-colab-item"]').forEach(cb => {
     cb.checked = cb.value === colabId;
   });
-  document.getElementById('form-sst-turma').scrollIntoView({ behavior: 'smooth' });
+  abrirModal('modal-turma');
 }
 
 function renderSstAsosTable(asos) {
@@ -829,90 +898,6 @@ async function excluirAso(id) {
   if (!confirm('Excluir este registro de ASO?')) return;
   await apiFetch('/api/sst', { method: 'POST', body: JSON.stringify({ action: 'excluir_aso', id }) });
   loadSST();
-}
-
-function renderProntuarioChecklist(ativos, tiposDoc, docsRh, acervoItems = []) {
-  const tbody = document.getElementById('sst-prontuario-body');
-  if (!tbody) return;
-
-  if (ativos.length === 0 || tiposDoc.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--text-muted);">Cadastre colaboradores e itens de prontuário.</td></tr>`;
-    return;
-  }
-
-  let somaPct = 0;
-  tbody.innerHTML = ativos.map(c => {
-    const docsColab = docsRh.filter(d => d.colaborador_id === c.id);
-    const acervoColab = acervoItems.filter(a => a.colaborador_id === c.id);
-    let feitos = 0;
-
-    const chips = tiposDoc.map(td => {
-      const chave = td.nome.toLowerCase().slice(0, 8);
-      const okRh = docsColab.some(d => d.titulo.toLowerCase().includes(chave));
-      const okAcervo = acervoColab.some(a =>
-        `${a.titulo} ${a.texto_ocr || ''}`.toLowerCase().includes(chave)
-      );
-      const ok = okRh || okAcervo;
-      if (ok) feitos++;
-      return `<span class="status-pill ${ok ? 'pill-green' : 'pill-amber'}" style="margin:2px;">${ok ? '✓' : '○'} ${td.nome}</span>`;
-    }).join(' ');
-
-    const pct = Math.round((feitos / tiposDoc.length) * 100);
-    somaPct += pct;
-
-    return `
-      <tr>
-        <td><strong>${c.nome}</strong></td>
-        <td>${chips}</td>
-        <td><strong>${feitos}/${tiposDoc.length}</strong> (${pct}%)</td>
-        <td>
-          <label class="btn-pill btn-outline btn-sm" style="cursor:pointer;">
-            Digitalizar Folha
-            <input type="file" accept="image/*,.pdf" style="display:none;" onchange="digitalizarDocProntuario(event, '${c.id}')">
-          </label>
-        </td>
-      </tr>`;
-  }).join('');
-
-  const pastasEl = document.getElementById('sst-kpi-pastas');
-  if (pastasEl) pastasEl.textContent = `${Math.round(somaPct / ativos.length)}%`;
-}
-
-async function digitalizarDocProntuario(event, colabId) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const tipos = STATE.sst?.tipos_doc_rh || [];
-  const sugestao = tipos.map(t => t.nome).join(' | ');
-  const titulo = prompt(`Qual documento você está digitalizando?\nOpções: ${sugestao}`, tipos[0]?.nome || 'Documento RH');
-  if (!titulo) return;
-
-  const colabObj = STATE.sst?.colaboradores.find(c => c.id === colabId);
-  const hoje = new Date().toISOString().slice(0, 10);
-
-  try {
-    const url = await uploadArquivoR2(file, 'rh-documentos');
-    await Promise.all([
-      syncParaDocumentosRH({
-        colaboradorId: colabId,
-        tipoDocumento: 'documento',
-        titulo: titulo.trim(),
-        dataEmissao: hoje,
-        arquivoUrl: url
-      }),
-      syncParaAcervoDigital({
-        titulo: `${titulo.trim()}${colabObj ? ' - ' + colabObj.nome : ''}`,
-        categoria: 'RH / Colaboradores',
-        dataDocumento: hoje,
-        colaboradorId: colabId,
-        nomeArquivo: file.name,
-        arquivoUrl: url
-      })
-    ]);
-    alert('Documento digitalizado e sincronizado com RH e Acervo Digital!');
-    loadSST();
-  } catch (err) {
-    alert(err.message);
-  }
 }
 
 /* ================= PASTA INDIVIDUAL DOS FUNCIONÁRIOS ================= */
@@ -1399,7 +1384,25 @@ async function excluirAdmCatAcervo(id) {
   loadSST();
 }
 
-/* ================= ADMINISTRAÇÃO (ADM) ================= */
+/* ================= ADMINISTRAÇÃO (ADM) & PRESETS DE HIERARQUIA ================= */
+function aplicarPresetPermissoes(setor) {
+  const presets = {
+    diretoria: { financeiro: true, administrativo: true, rh: true, vendas: true, producao: true, admin: true },
+    financeiro: { financeiro: true, administrativo: false, rh: false, vendas: true, producao: false, admin: false },
+    administrativo: { financeiro: false, administrativo: true, rh: true, vendas: false, producao: false, admin: false },
+    vendas: { financeiro: false, administrativo: false, rh: false, vendas: true, producao: false, admin: false },
+    producao: { financeiro: false, administrativo: false, rh: false, vendas: false, producao: true, admin: false }
+  };
+  const cfg = presets[setor];
+  if (!cfg) return;
+  document.getElementById('perm-financeiro').checked = cfg.financeiro;
+  document.getElementById('perm-administrativo').checked = cfg.administrativo;
+  document.getElementById('perm-rh').checked = cfg.rh;
+  document.getElementById('perm-vendas').checked = cfg.vendas;
+  document.getElementById('perm-producao').checked = cfg.producao;
+  document.getElementById('perm-admin').checked = cfg.admin;
+}
+
 async function loadAdmin() {
   try {
     const data = await apiFetch('/api/admin');
@@ -1714,7 +1717,9 @@ function aplicarOcrEmContasPagar() {
     document.getElementById('pagar-comprovante-url').value = STATE.ocrLastUploadUrl;
   }
   fecharModal('modal-ocr-global');
-  switchModule('pagar');
+  switchModule('financeiro_hub');
+  document.querySelector('[data-fintab="pagar"]')?.click();
+  abrirModal('modal-pagar');
 }
 
 function aplicarOcrEmContasReceber() {
@@ -1730,33 +1735,87 @@ function aplicarOcrEmContasReceber() {
   document.getElementById('serv-valor').value = document.getElementById('ocr-res-valor').value;
   document.getElementById('serv-primeiro-venc').value = document.getElementById('ocr-res-data').value;
   fecharModal('modal-ocr-global');
-  switchModule('receber');
+  switchModule('financeiro_hub');
+  document.querySelector('[data-fintab="receber"]')?.click();
+  abrirModal('modal-servico');
 }
 
 function aplicarOcrEmColaborador() {
+  resetFormColaborador();
   document.getElementById('colab-nome').value = document.getElementById('ocr-res-nome').value;
   document.getElementById('colab-cpf').value = document.getElementById('ocr-res-doc').value;
   fecharModal('modal-ocr-global');
-  switchModule('rh_colaboradores');
+  switchModule('equipe_hub');
+  abrirModal('modal-colaborador');
 }
 
 /* ================= EVENT LISTENERS ================= */
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('login-form').addEventListener('submit', handleLogin);
   document.getElementById('btn-logout').addEventListener('click', handleLogout);
-  document.getElementById('btn-refresh-dashboard').addEventListener('click', loadDashboard);
+  document.getElementById('btn-refresh-dashboard')?.addEventListener('click', loadDashboard);
 
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => switchModule(btn.dataset.module));
   });
 
-  document.querySelectorAll('[data-rhtab]').forEach(btn => {
+  // Navegação de abas internas: Financeiro
+  document.querySelectorAll('[data-fintab]').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-rhtab]').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('[data-fintab]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      const tab = btn.dataset.rhtab;
-      document.getElementById('subtab-comportamento').classList.toggle('hidden', tab !== 'comportamento');
-      document.getElementById('subtab-produtividade').classList.toggle('hidden', tab !== 'produtividade');
+      const tab = btn.dataset.fintab;
+      ['fluxo', 'receber', 'pagar'].forEach(k => {
+        document.getElementById(`fintab-${k}`)?.classList.toggle('hidden', k !== tab);
+      });
+    });
+  });
+
+  // Navegação de abas internas: Equipe & Prontuários
+  document.querySelectorAll('[data-eqtab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-eqtab]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.eqtab;
+      ['pastas', 'colaboradores', 'documentos'].forEach(k => {
+        document.getElementById(`eqtab-${k}`)?.classList.toggle('hidden', k !== tab);
+      });
+    });
+  });
+
+  // Navegação de abas internas: Folha & Desempenho
+  document.querySelectorAll('[data-fdtab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-fdtab]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.fdtab;
+      ['folha', 'comportamento', 'produtividade'].forEach(k => {
+        document.getElementById(`fdtab-${k}`)?.classList.toggle('hidden', k !== tab);
+      });
+    });
+  });
+
+  // Navegação de abas internas: SST & Certificados
+  document.querySelectorAll('[data-ssttab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-ssttab]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.ssttab;
+      ['pendencias', 'asos', 'certificados'].forEach(k => {
+        document.getElementById(`ssttab-${k}`)?.classList.toggle('hidden', k !== tab);
+      });
+    });
+  });
+
+  // Navegação de abas internas: Administração (ADM)
+  document.querySelectorAll('[data-admtab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-admtab]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.admtab;
+      ['usuarios', 'financeiro_cfg', 'normas_rh', 'auditoria'].forEach(k => {
+        document.getElementById(`admtab-${k}`)?.classList.toggle('hidden', k !== tab);
+      });
     });
   });
 
@@ -1825,7 +1884,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btn-open-ocr-global').addEventListener('click', () => {
-    document.getElementById('modal-ocr-global').classList.remove('hidden');
+    abrirModal('modal-ocr-global');
   });
 
   document.getElementById('global-ocr-file').addEventListener('change', async e => {
@@ -1874,6 +1933,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
       });
       e.target.reset();
+      fecharModal('modal-avulsa');
       loadFinanceiro();
     } catch (err) {
       alert(err.message);
@@ -1915,6 +1975,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
       });
       e.target.reset();
+      fecharModal('modal-servico');
       loadFinanceiro();
     } catch (err) {
       alert(err.message);
@@ -1956,35 +2017,47 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('pagar-comprovante-url').value = '';
       document.getElementById('pagar-ocr-status').textContent = '';
       document.getElementById('pagar-ocr-preview').classList.add('hidden');
+      fecharModal('modal-pagar');
       loadFinanceiro();
     } catch (err) {
       alert(err.message);
     }
   });
 
+  // --- AUTOMAÇÃO NA ADMISSÃO DE COLABORADOR ---
   document.getElementById('form-colaborador').addEventListener('submit', async e => {
     e.preventDefault();
+    const isNovo = !document.getElementById('colab-id').value;
+    const nomeColab = document.getElementById('colab-nome').value;
+    const setorColab = document.getElementById('colab-setor').value;
+    const statusColab = document.getElementById('colab-status').value;
+
     try {
       await apiFetch('/api/rh', {
         method: 'POST',
         body: JSON.stringify({
           action: 'salvar_colaborador',
           id: document.getElementById('colab-id').value || null,
-          nome: document.getElementById('colab-nome').value,
+          nome: nomeColab,
           cpf: document.getElementById('colab-cpf').value,
           rg: document.getElementById('colab-rg').value,
           telefone: document.getElementById('colab-telefone').value,
           cargo: document.getElementById('colab-cargo').value,
-          setor: document.getElementById('colab-setor').value,
+          setor: setorColab,
           data_admissao: document.getElementById('colab-admissao').value || null,
           salario_base: document.getElementById('colab-salario').value,
           chave_pix: document.getElementById('colab-pix').value,
           comissao_faixa1_pct: document.getElementById('colab-comissao1').value,
-          status: document.getElementById('colab-status').value
+          status: statusColab
         })
       });
       resetFormColaborador();
-      loadRH();
+      fecharModal('modal-colaborador');
+      await Promise.all([loadRH(), loadPastasFuncionarios(), loadSST()]);
+
+      if (isNovo && statusColab === 'ativo') {
+        alert(`Colaborador ${nomeColab} cadastrado!\n\nA Pasta Individual foi criada e as pendências de ASO Admissional e NRs obrigatórias do setor "${setorColab.toUpperCase()}" já foram geradas automaticamente no painel de SST.`);
+      }
     } catch (err) {
       alert(err.message);
     }
@@ -2051,7 +2124,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       e.target.reset();
+      fecharModal('modal-documento');
       loadRH();
+      loadPastasFuncionarios();
     } catch (err) {
       alert(err.message);
     }
@@ -2072,6 +2147,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
       });
       e.target.reset();
+      fecharModal('modal-vale');
       loadRH();
     } catch (err) {
       alert(err.message);
@@ -2093,6 +2169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         })
       });
       e.target.reset();
+      fecharModal('modal-ocorrencia');
       loadRH();
     } catch (err) {
       alert(err.message);
@@ -2116,35 +2193,59 @@ document.addEventListener('DOMContentLoaded', () => {
         })
       });
       e.target.reset();
+      fecharModal('modal-produtividade');
       loadRH();
     } catch (err) {
       alert(err.message);
     }
   });
 
+  // --- AUTOMAÇÃO: CERTIFICADO EMITIDO -> ATUALIZA NR E PASTA INDIVIDUAL ---
   document.getElementById('form-certificado').addEventListener('submit', async e => {
     e.preventDefault();
+    const colabId = document.getElementById('cert-colaborador').value;
+    const nrId = document.getElementById('cert-nr-select').value || null;
+    const tituloCurso = document.getElementById('cert-titulo').value;
+    const dataConclusao = document.getElementById('cert-data').value;
+    const mesesVal = Number(document.getElementById('cert-validade-meses').value || 12);
+
+    const dtVal = new Date(dataConclusao + 'T12:00:00');
+    dtVal.setMonth(dtVal.getMonth() + mesesVal);
+    const dataValidade = dtVal.toISOString().slice(0, 10);
+
     try {
       const res = await apiFetch('/api/rh', {
         method: 'POST',
         body: JSON.stringify({
           action: 'gerar_certificado',
-          colaborador_id: document.getElementById('cert-colaborador').value,
-          nr_id: document.getElementById('cert-nr-select').value || null,
-          titulo_curso: document.getElementById('cert-titulo').value,
+          colaborador_id: colabId,
+          nr_id: nrId,
+          titulo_curso: tituloCurso,
           carga_horaria: document.getElementById('cert-carga').value,
-          data_conclusao: document.getElementById('cert-data').value,
-          validade_meses: document.getElementById('cert-validade-meses').value,
+          data_conclusao: dataConclusao,
+          validade_meses: mesesVal,
           instrutor_nome: document.getElementById('cert-instrutor').value,
           instrutor_registro: document.getElementById('cert-registro').value,
           conteudo_programatico: document.getElementById('cert-conteudo').value
         })
       });
+
+      // Garante sincronização imediata com Documentos/NRs e Pasta Individual do colaborador
+      await syncParaDocumentosRH({
+        colaboradorId: colabId,
+        nrId,
+        tipoDocumento: nrId ? 'nr' : 'documento',
+        titulo: tituloCurso,
+        dataEmissao: dataConclusao,
+        dataValidade
+      });
+
       e.target.reset();
-      await loadRH();
+      fecharModal('modal-certificado-form');
+      await Promise.all([loadRH(), loadSST()]);
       if (res.certificado) {
         preencherModalCertificado(res.certificado);
-        document.getElementById('modal-certificado').classList.remove('hidden');
+        abrirModal('modal-certificado');
       }
     } catch (err) {
       alert(err.message);
@@ -2215,6 +2316,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       e.target.reset();
+      fecharModal('modal-aso');
       loadSST();
     } catch (err) {
       alert(err.message);
@@ -2271,17 +2373,16 @@ document.addEventListener('DOMContentLoaded', () => {
               conteudo_programatico: nrObj?.conteudo_programatico || ''
             })
           });
-        } else {
-          await syncParaDocumentosRH({
-            colaboradorId: colabId,
-            nrId,
-            tipoDocumento: 'nr',
-            titulo: tituloTreinamento,
-            dataEmissao,
-            dataValidade,
-            arquivoUrl: fileUrl
-          });
         }
+        await syncParaDocumentosRH({
+          colaboradorId: colabId,
+          nrId,
+          tipoDocumento: 'nr',
+          titulo: tituloTreinamento,
+          dataEmissao,
+          dataValidade,
+          arquivoUrl: fileUrl
+        });
       }
 
       if (fileUrl) {
@@ -2301,7 +2402,9 @@ document.addEventListener('DOMContentLoaded', () => {
           : `Treinamento lançado para ${selecionados.length} colaborador(es)!`
       );
       e.target.reset();
+      fecharModal('modal-turma');
       loadSST();
+      loadRH();
     } catch (err) {
       alert(err.message);
     }
@@ -2366,6 +2469,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       status.textContent = `${files.length} documento(s) digitalizado(s) e sincronizado(s) com sucesso!`;
       e.target.reset();
+      fecharModal('modal-acervo');
       loadAcervo();
     } catch (err) {
       status.textContent = 'Erro: ' + err.message;
