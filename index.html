@@ -11,6 +11,95 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    /* Ajuste proporcional da Versão 5 para caber 100% na tela em zoom 100% (equivalente ao visual em 80%) */
+    #login-view.login-wrapper {
+      min-height: 100vh;
+      height: 100vh;
+      max-height: 100vh;
+      overflow-y: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 24px;
+      box-sizing: border-box;
+    }
+
+    #login-view .login-card {
+      width: 100%;
+      max-width: 350px;
+      padding: 22px 28px !important;
+      margin: auto;
+      border-radius: 20px;
+    }
+
+    #login-view .login-brand {
+      margin-bottom: 12px !important;
+    }
+
+    #login-view .login-brand p {
+      font-size: 0.76rem !important;
+      line-height: 1.38 !important;
+      max-width: 245px !important;
+      margin: 0 auto 12px auto !important;
+    }
+
+    #login-view .login-brand img {
+      max-width: 235px !important;
+    }
+
+    #login-view #login-form .form-group {
+      margin-bottom: 13px !important;
+    }
+
+    #login-view #login-form label {
+      font-size: 0.78rem !important;
+      margin-bottom: 5px !important;
+    }
+
+    #login-view #login-form .form-control {
+      height: 38px !important;
+      padding: 6px 12px !important;
+      font-size: 0.85rem !important;
+      border-radius: 10px !important;
+    }
+
+    #login-view #login-submit {
+      height: 40px !important;
+      font-size: 0.85rem !important;
+      margin-top: 2px;
+    }
+
+    #login-view .login-register-footer {
+      margin-top: 15px !important;
+      padding-top: 12px !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+      text-align: center;
+    }
+
+    #login-view .login-register-footer p {
+      color: #CBD5E1;
+      font-size: 0.72rem !important;
+      margin: 0 0 9px 0 !important;
+    }
+
+    #login-view #btn-show-register {
+      height: 37px !important;
+      font-size: 0.8rem !important;
+    }
+
+    /* Quando abrir o cadastro de nova conta, libera altura para não cortar campos */
+    #login-view.register-open {
+      height: auto;
+      max-height: none;
+      padding: 18px 24px;
+    }
+
+    #login-view.register-open .login-card {
+      max-width: 400px;
+      padding: 26px 32px !important;
+    }
+  </style>
 </head>
 <body>
 
@@ -43,8 +132,8 @@
           Entrar no Sistema
         </button>
 
-        <div style="margin-top:18px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.16); text-align:center;">
-          <p style="color:#CBD5E1; font-size:0.82rem; margin:0 0 10px 0;">Ainda não possui acesso ao sistema?</p>
+        <div class="login-register-footer">
+          <p>Ainda não possui acesso ao sistema?</p>
           <button
             type="button"
             id="btn-show-register"
@@ -1968,10 +2057,12 @@
   <!-- SCRIPT DIRETO DE ALTERNÂNCIA LOGIN <-> CADASTRO -->
   <script>
     function abrirTelaCadastro() {
+      var view = document.getElementById('login-view');
       var err = document.getElementById('login-error');
       var suc = document.getElementById('login-success');
       var fLogin = document.getElementById('login-form');
       var fReg = document.getElementById('register-form');
+      if (view) view.classList.add('register-open');
       if (err) err.classList.add('hidden');
       if (suc) suc.classList.add('hidden');
       if (fLogin) fLogin.classList.add('hidden');
@@ -1980,9 +2071,11 @@
 
     function voltarTelaLogin(e) {
       if (e) e.preventDefault();
+      var view = document.getElementById('login-view');
       var err = document.getElementById('login-error');
       var fLogin = document.getElementById('login-form');
       var fReg = document.getElementById('register-form');
+      if (view) view.classList.remove('register-open');
       if (err) err.classList.add('hidden');
       if (fReg) fReg.classList.add('hidden');
       if (fLogin) fLogin.classList.remove('hidden');
