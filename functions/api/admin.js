@@ -11,9 +11,9 @@ export async function onRequestGet({ request, env }) {
     const sql = getSql(env);
 
     const usuarios = await sql`
-      SELECT id, nome, email, perfil, ativo, setor, permissoes, created_at
+      SELECT id, nome, email, perfil, ativo, setor, cargo, permissoes, created_at
       FROM usuarios
-      ORDER BY created_at ASC
+      ORDER BY ativo ASC, created_at DESC
     `;
 
     const categorias = await sql`
@@ -37,17 +37,29 @@ export async function onRequestGet({ request, env }) {
 export async function onRequestPost({ request, env }) {
   const user = await verifyAuth(request, env);
   if (!user) return json({ error: 'Não autorizado.' }, 401);
-  if (!hasPerm(user, 'admin')) {
-    return json({ error: 'Acesso exclusivo do Administrador (ADM).' }, 403);
-  }
 
   try {
     const body = await request.json();
     const { action } = body;
     const sql = getSql(env);
 
+    // Qualquer usuário logado pode atualizar a própria foto de perfil
+    if (action === 'salvar_foto') {
+      const { foto_perfil } = body;
+      await sql`
+        UPDATE usuarios SET foto_perfil = ${foto_perfil}
+        WHERE id = ${user.id}
+      `;
+      return json({ ok: true });
+    }
+
+    // Ações abaixo exigem permissão ADM
+    if (!hasPerm(user, 'admin')) {
+      return json({ error: 'Acesso exclusivo do Administrador (ADM).' }, 403);
+    }
+
     if (action === 'salvar_usuario') {
-      const { id, nome, email, senha, setor, ativo, permissoes } = body;
+      const { id, nome, email, senha, setor, cargo, ativo, permissoes } = body;
       const loginNorm = (email || '').trim().toLowerCase();
 
       if (!nome || !loginNorm) {
@@ -76,6 +88,7 @@ export async function onRequestPost({ request, env }) {
               senha_hash = ${senha.trim()},
               perfil = ${perfilDb},
               setor = ${setor || 'geral'},
+              cargo = ${cargo || null},
               ativo = ${ativo !== false},
               permissoes = ${JSON.stringify(perms)}::jsonb
             WHERE id = ${id}
@@ -87,6 +100,7 @@ export async function onRequestPost({ request, env }) {
               email = ${loginNorm},
               perfil = ${perfilDb},
               setor = ${setor || 'geral'},
+              cargo = ${cargo || null},
               ativo = ${ativo !== false},
               permissoes = ${JSON.stringify(perms)}::jsonb
             WHERE id = ${id}
@@ -100,17 +114,26 @@ export async function onRequestPost({ request, env }) {
       }
 
       await sql`
-        INSERT INTO usuarios (nome, email, senha_hash, perfil, setor, ativo, permissoes)
+        INSERT INTO usuarios (nome, email, senha_hash, perfil, setor, cargo, ativo, permissoes)
         VALUES (
           ${nome},
           ${loginNorm},
           ${senha.trim()},
           ${perfilDb},
           ${setor || 'geral'},
+          ${cargo || null},
           ${ativo !== false},
           ${JSON.stringify(perms)}::jsonb
         )
       `;
+      return json({ ok: true });
+    }
+
+    // Recusar / excluir solicitação pendente
+    if (action === 'excluir_usuario') {
+      const { id } = body;
+      if (!id) return json({ error: 'ID inválido.' }, 400);
+      await sql`DELETE FROM usuarios WHERE id = ${id} AND ativo = FALSE`;
       return json({ ok: true });
     }
 
