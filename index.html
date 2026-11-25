@@ -11,17 +11,197 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    /* Tela de login ajustada para caber 100% na altura da viewport (100vh) + efeitos suaves de vidro no fundo */
+    #login-view.login-wrapper {
+      position: relative;
+      min-height: 100vh;
+      height: 100vh;
+      max-height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 16px;
+      box-sizing: border-box;
+      background: radial-gradient(circle at 18% 20%, #07383e 0%, #032125 55%, #021619 100%);
+    }
+
+    /* Painéis e reflexos translúcidos de vidro no background */
+    #login-view.login-wrapper::before {
+      content: "";
+      position: fixed;
+      top: -12%;
+      left: -8%;
+      width: 52vw;
+      height: 68vh;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.065) 0%, rgba(255, 255, 255, 0.01) 60%, transparent 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 32px;
+      transform: rotate(-14deg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    #login-view.login-wrapper::after {
+      content: "";
+      position: fixed;
+      bottom: -14%;
+      right: -6%;
+      width: 48vw;
+      height: 64vh;
+      background: linear-gradient(315deg, rgba(212, 160, 23, 0.07) 0%, rgba(255, 255, 255, 0.04) 45%, transparent 100%);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 36px;
+      transform: rotate(-14deg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Placas flutuantes de vidro temperado */
+    .glass-pane-bg {
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+      border-radius: 24px;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .glass-pane-1 {
+      width: 280px;
+      height: 360px;
+      top: 10%;
+      left: 8%;
+      transform: rotate(-8deg);
+    }
+
+    .glass-pane-2 {
+      width: 310px;
+      height: 380px;
+      bottom: 8%;
+      right: 7%;
+      transform: rotate(9deg);
+    }
+
+    .glass-pane-3 {
+      width: 210px;
+      height: 210px;
+      top: 14%;
+      right: 16%;
+      transform: rotate(18deg);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, transparent 100%);
+    }
+
+    /* Cartão principal compacto para caber 100% na tela sem cortar o botão inferior */
+    #login-view .login-card {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      padding: 18px 28px 18px 28px !important;
+      margin: auto;
+      background: linear-gradient(165deg, rgba(6, 74, 82, 0.90) 0%, rgba(4, 57, 63, 0.94) 100%);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(212, 160, 23, 0.65);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    }
+
+    #login-view .login-brand {
+      margin-bottom: 10px !important;
+    }
+
+    #login-view .login-brand p {
+      font-size: 0.84rem !important;
+      line-height: 1.3 !important;
+      margin: 0 auto 8px auto !important;
+    }
+
+    #login-view .login-brand img {
+      max-width: 225px !important;
+      max-height: 112px;
+      object-fit: contain;
+    }
+
+    #login-view #login-form .form-group {
+      margin-bottom: 10px !important;
+    }
+
+    #login-view #login-form label {
+      margin-bottom: 4px !important;
+      font-size: 0.82rem !important;
+    }
+
+    #login-view #login-form .form-control {
+      height: 38px !important;
+      padding: 6px 14px !important;
+      font-size: 0.9rem !important;
+    }
+
+    #login-view #login-submit {
+      height: 40px !important;
+      margin-top: 2px;
+    }
+
+    #login-view .login-register-footer {
+      margin-top: 12px !important;
+      padding-top: 10px !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+      text-align: center;
+    }
+
+    #login-view .login-register-footer p {
+      color: #CBD5E1;
+      font-size: 0.78rem !important;
+      margin: 0 0 7px 0 !important;
+    }
+
+    #login-view #btn-show-register {
+      height: 38px !important;
+      font-size: 0.85rem !important;
+    }
+
+    /* Quando o formulário de cadastro estiver aberto, permitir altura fluida sem aperto */
+    #login-view.register-open {
+      height: auto;
+      max-height: none;
+      padding: 20px 16px;
+    }
+
+    @media (max-height: 640px) {
+      #login-view .login-brand img {
+        max-width: 185px !important;
+        max-height: 88px;
+      }
+      #login-view .login-card {
+        padding: 14px 24px !important;
+      }
+    }
+  </style>
 </head>
 <body>
 
   <!-- TELA DE LOGIN & SOLICITAÇÃO DE CONTA -->
   <div id="login-view" class="login-wrapper">
-    <div class="login-card" style="padding-top:26px;">
-      <div class="login-brand" style="text-align:center; margin-bottom:14px;">
-        <p style="color:#E2E8F0; font-size:0.9rem; font-weight:500; line-height:1.4; max-width:300px; margin:0 auto 14px auto;">
+    <div class="glass-pane-bg glass-pane-1" aria-hidden="true"></div>
+    <div class="glass-pane-bg glass-pane-2" aria-hidden="true"></div>
+    <div class="glass-pane-bg glass-pane-3" aria-hidden="true"></div>
+
+    <div class="login-card">
+      <div class="login-brand" style="text-align:center;">
+        <p style="color:#E2E8F0; font-weight:500; max-width:300px;">
           Sistema Integrado de Gestão Financeira, RH e Produção
         </p>
-        <img src="assets/logo-fortalglass.png" alt="FortalGlass" style="width:100%; max-width:290px; height:auto; margin:0 auto; display:block;" />
+        <img src="assets/logo-fortalglass.png" alt="FortalGlass" style="width:100%; height:auto; margin:0 auto; display:block;" />
       </div>
 
       <div id="login-error" class="login-error hidden"></div>
@@ -43,8 +223,8 @@
           Entrar no Sistema
         </button>
 
-        <div style="margin-top:18px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.16); text-align:center;">
-          <p style="color:#CBD5E1; font-size:0.82rem; margin:0 0 10px 0;">Ainda não possui acesso ao sistema?</p>
+        <div class="login-register-footer">
+          <p>Ainda não possui acesso ao sistema?</p>
           <button
             type="button"
             id="btn-show-register"
@@ -1968,10 +2148,12 @@
   <!-- SCRIPT DIRETO DE ALTERNÂNCIA LOGIN <-> CADASTRO -->
   <script>
     function abrirTelaCadastro() {
+      var view = document.getElementById('login-view');
       var err = document.getElementById('login-error');
       var suc = document.getElementById('login-success');
       var fLogin = document.getElementById('login-form');
       var fReg = document.getElementById('register-form');
+      if (view) view.classList.add('register-open');
       if (err) err.classList.add('hidden');
       if (suc) suc.classList.add('hidden');
       if (fLogin) fLogin.classList.add('hidden');
@@ -1980,9 +2162,11 @@
 
     function voltarTelaLogin(e) {
       if (e) e.preventDefault();
+      var view = document.getElementById('login-view');
       var err = document.getElementById('login-error');
       var fLogin = document.getElementById('login-form');
       var fReg = document.getElementById('register-form');
+      if (view) view.classList.remove('register-open');
       if (err) err.classList.add('hidden');
       if (fReg) fReg.classList.add('hidden');
       if (fLogin) fLogin.classList.remove('hidden');
