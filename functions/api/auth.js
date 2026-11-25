@@ -11,6 +11,60 @@ export async function onRequestGet({ request, env }) {
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
+    const sql = getSql(env);
+
+    // === NOVA AÇÃO: SOLICITAÇÃO DE CONTA ===
+    if (body.action === 'solicitar_cadastro') {
+      const nome = (body.nome || '').trim();
+      const cargo = (body.cargo || '').trim();
+      const setor = (body.setor || 'geral').trim();
+      const email = (body.email || '').trim().toLowerCase();
+      const senha = (body.senha || '').trim();
+
+      if (!nome || !cargo || !email || !senha) {
+        return json({ error: 'Preencha nome, cargo, login e senha.' }, 400);
+      }
+
+      const existe = await sql`
+        SELECT id FROM usuarios WHERE LOWER(email) = ${email} LIMIT 1
+      `;
+      if (existe.length > 0) {
+        return json({ error: 'Este login de acesso já está cadastrado.' }, 409);
+      }
+
+      const permsIniciais = {
+        dashboard: true,
+        financeiro: false,
+        vendas: false,
+        producao: false,
+        estoque: false,
+        rh: false,
+        administrativo: false,
+        admin: false
+      };
+
+      // Cria com ativo = FALSE (aguardando aprovação do Gean)
+      await sql`
+        INSERT INTO usuarios (nome, email, senha_hash, perfil, setor, cargo, ativo, permissoes)
+        VALUES (
+          ${nome},
+          ${email},
+          ${senha},
+          'funcionario',
+          ${setor},
+          ${cargo},
+          FALSE,
+          ${JSON.stringify(permsIniciais)}::jsonb
+        )
+      `;
+
+      return json({
+        ok: true,
+        message: 'Solicitação enviada com sucesso! Aguarde a aprovação e liberação de acessos pelo administrador.'
+      });
+    }
+
+    // === LOGIN NORMAL ===
     const email = (body.email || '').trim().toLowerCase();
     const senha = (body.senha || '').trim();
 
@@ -18,9 +72,8 @@ export async function onRequestPost({ request, env }) {
       return json({ error: 'Informe login e senha.' }, 400);
     }
 
-    const sql = getSql(env);
     const rows = await sql`
-      SELECT id, nome, email, senha_hash, perfil, ativo, setor, permissoes
+      SELECT id, nome, email, senha_hash, perfil, ativo, setor, cargo, foto_perfil, permissoes
       FROM usuarios
       WHERE LOWER(email) = ${email}
       LIMIT 1
@@ -31,12 +84,15 @@ export async function onRequestPost({ request, env }) {
     }
 
     const usuario = rows[0];
-    if (!usuario.ativo) {
-      return json({ error: 'Usuário desativado. Contate o administrador.' }, 403);
-    }
 
     if (usuario.senha_hash !== senha) {
       return json({ error: 'Senha incorreta.' }, 401);
+    }
+
+    if (!usuario.ativo) {
+      return json({
+        error: 'Sua conta está pendente de aprovação ou desativada. Aguarde o administrador (Gean) liberar seus acessos.'
+      }, 403);
     }
 
     const defaultPerms = usuario.perfil === 'admin'
@@ -49,6 +105,8 @@ export async function onRequestPost({ request, env }) {
       email: usuario.email,
       perfil: usuario.perfil,
       setor: usuario.setor || 'geral',
+      cargo: usuario.cargo || '',
+      foto_perfil: usuario.foto_perfil || null,
       permissoes: usuario.permissoes || defaultPerms
     };
 
