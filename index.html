@@ -11,111 +11,17 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <style>
-    /* Fundo limpo (sem efeito de vidro) e painel ocupando quase toda a altura da janela */
-    #login-view.login-wrapper {
-      min-height: 100vh;
-      height: 100vh;
-      max-height: 100vh;
-      overflow-y: auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 24px;
-      box-sizing: border-box;
-    }
-
-    #login-view .login-card {
-      width: 100%;
-      max-width: 420px;
-      min-height: calc(100vh - 20px);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 36px 36px 32px 36px !important;
-      margin: 0 auto;
-      box-sizing: border-box;
-    }
-
-    #login-view .login-brand {
-      margin-bottom: 18px !important;
-    }
-
-    #login-view .login-brand p {
-      font-size: 0.92rem !important;
-      line-height: 1.4 !important;
-      max-width: 300px !important;
-      margin: 0 auto 18px auto !important;
-    }
-
-    #login-view .login-brand img {
-      max-width: 280px !important;
-      height: auto;
-    }
-
-    #login-view #login-form {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-
-    #login-view #login-form .form-group {
-      margin-bottom: 18px !important;
-    }
-
-    #login-view #login-form label {
-      margin-bottom: 7px !important;
-    }
-
-    #login-view #login-form .form-control {
-      height: 46px !important;
-    }
-
-    #login-view #login-submit {
-      height: 48px !important;
-      margin-top: 6px;
-    }
-
-    #login-view .login-register-footer {
-      margin-top: 24px !important;
-      padding-top: 18px !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.16);
-      text-align: center;
-    }
-
-    #login-view .login-register-footer p {
-      color: #CBD5E1;
-      font-size: 0.84rem !important;
-      margin: 0 0 12px 0 !important;
-    }
-
-    #login-view #btn-show-register {
-      height: 44px !important;
-    }
-
-    /* Quando o formulário de cadastro abrir, permite altura fluida */
-    #login-view.register-open {
-      height: auto;
-      max-height: none;
-      padding: 16px 24px;
-    }
-
-    #login-view.register-open .login-card {
-      min-height: auto;
-    }
-  </style>
 </head>
 <body>
 
   <!-- TELA DE LOGIN & SOLICITAÇÃO DE CONTA -->
   <div id="login-view" class="login-wrapper">
-    <div class="login-card">
-      <div class="login-brand" style="text-align:center;">
-        <p style="color:#E2E8F0; font-weight:500;">
+    <div class="login-card" style="padding-top:26px;">
+      <div class="login-brand" style="text-align:center; margin-bottom:14px;">
+        <p style="color:#E2E8F0; font-size:0.9rem; font-weight:500; line-height:1.4; max-width:300px; margin:0 auto 14px auto;">
           Sistema Integrado de Gestão Financeira, RH e Produção
         </p>
-        <img src="assets/logo-fortalglass.png" alt="FortalGlass" style="width:100%; height:auto; margin:0 auto; display:block;" />
+        <img src="assets/logo-fortalglass.png" alt="FortalGlass" style="width:100%; max-width:290px; height:auto; margin:0 auto; display:block;" />
       </div>
 
       <div id="login-error" class="login-error hidden"></div>
@@ -137,8 +43,8 @@
           Entrar no Sistema
         </button>
 
-        <div class="login-register-footer">
-          <p>Ainda não possui acesso ao sistema?</p>
+        <div style="margin-top:18px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.16); text-align:center;">
+          <p style="color:#CBD5E1; font-size:0.82rem; margin:0 0 10px 0;">Ainda não possui acesso ao sistema?</p>
           <button
             type="button"
             id="btn-show-register"
@@ -2062,12 +1968,10 @@
   <!-- SCRIPT DIRETO DE ALTERNÂNCIA LOGIN <-> CADASTRO -->
   <script>
     function abrirTelaCadastro() {
-      var view = document.getElementById('login-view');
       var err = document.getElementById('login-error');
       var suc = document.getElementById('login-success');
       var fLogin = document.getElementById('login-form');
       var fReg = document.getElementById('register-form');
-      if (view) view.classList.add('register-open');
       if (err) err.classList.add('hidden');
       if (suc) suc.classList.add('hidden');
       if (fLogin) fLogin.classList.add('hidden');
@@ -2076,11 +1980,9 @@
 
     function voltarTelaLogin(e) {
       if (e) e.preventDefault();
-      var view = document.getElementById('login-view');
       var err = document.getElementById('login-error');
       var fLogin = document.getElementById('login-form');
       var fReg = document.getElementById('register-form');
-      if (view) view.classList.remove('register-open');
       if (err) err.classList.add('hidden');
       if (fReg) fReg.classList.add('hidden');
       if (fLogin) fLogin.classList.remove('hidden');
