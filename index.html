@@ -7,14 +7,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=10" />
+  <link rel="stylesheet" href="css/style.css?v=11" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
 
-  <!-- TELA DE LOGIN -->
+  <!-- TELA DE LOGIN & SOLICITAÇÃO DE CONTA -->
   <div id="login-view" class="login-wrapper">
     <div class="login-card">
       <div class="login-brand">
@@ -23,7 +23,9 @@
       </div>
 
       <div id="login-error" class="login-error hidden"></div>
+      <div id="login-success" class="hidden" style="background:#dcfce7; color:#166534; padding:10px 14px; border-radius:10px; font-size:0.84rem; margin-bottom:14px; font-weight:600;"></div>
 
+      <!-- FORMULÁRIO DE LOGIN -->
       <form id="login-form">
         <div class="form-group">
           <label for="login-email">Login</label>
@@ -38,6 +40,62 @@
         <button type="submit" id="login-submit" class="btn-pill btn-primary btn-full">
           Entrar no Sistema
         </button>
+
+        <div style="text-align:center; margin-top:16px;">
+          <a href="#" id="btn-show-register" style="color:var(--primary); font-size:0.84rem; font-weight:600; text-decoration:none;">
+            Não tem conta? Solicitar acesso ao sistema
+          </a>
+        </div>
+      </form>
+
+      <!-- FORMULÁRIO DE CRIAÇÃO DE CONTA (AGUARDA APROVAÇÃO DO ADM) -->
+      <form id="register-form" class="hidden">
+        <h3 style="color:var(--primary); font-size:1rem; margin-bottom:4px;">Solicitar Criação de Conta</h3>
+        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:14px;">
+          Preencha seus dados. Após o envio, o administrador (Gean) aprovará e definirá seus módulos de acesso.
+        </p>
+
+        <div class="form-group">
+          <label for="reg-nome">Nome Completo</label>
+          <input type="text" id="reg-nome" class="form-control" placeholder="Ex: João Silva" required />
+        </div>
+
+        <div class="form-group">
+          <label for="reg-cargo">Cargo / Função</label>
+          <input type="text" id="reg-cargo" class="form-control" placeholder="Ex: Vidraceiro, Orçamentista, Auxiliar Adm" required />
+        </div>
+
+        <div class="form-group">
+          <label for="reg-setor">Setor de Atuação</label>
+          <select id="reg-setor" class="form-control" required>
+            <option value="producao">Produção / Fábrica</option>
+            <option value="instalacao">Instalação / Obras</option>
+            <option value="vendas">Vendas / Comercial</option>
+            <option value="administrativo">Administrativo / RH</option>
+            <option value="financeiro">Financeiro</option>
+            <option value="geral">Geral</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="reg-email">Login de Acesso (sem espaços)</label>
+          <input type="text" id="reg-email" class="form-control" placeholder="Ex: joaosilva" autocomplete="off" required />
+        </div>
+
+        <div class="form-group">
+          <label for="reg-senha">Crie uma Senha</label>
+          <input type="password" id="reg-senha" class="form-control" placeholder="Defina sua senha" autocomplete="new-password" required />
+        </div>
+
+        <button type="submit" id="reg-submit" class="btn-pill btn-primary btn-full">
+          Enviar Solicitação de Conta
+        </button>
+
+        <div style="text-align:center; margin-top:14px;">
+          <a href="#" id="btn-back-login" style="color:var(--text-muted); font-size:0.82rem; text-decoration:none;">
+            ← Voltar para o Login
+          </a>
+        </div>
       </form>
     </div>
   </div>
@@ -111,10 +169,11 @@
           <h1 id="page-title">VISÃO GERAL</h1>
           <p id="page-subtitle">Indicadores financeiros, vencimentos e alertas de NRs</p>
         </div>
-<div class="topbar-actions">
+        <div class="topbar-actions">
           <button id="btn-logout" class="btn-pill btn-outline btn-sm">Sair</button>
         </div>
       </header>
+
       <main class="content-area">
         <!-- 1. VISÃO GERAL (DASHBOARD) -->
         <section id="section-dashboard">
@@ -847,11 +906,35 @@
 
           <!-- SUB-ABA ADM 1: USUÁRIOS & PERMISSÕES -->
           <div id="admtab-usuarios">
+            <!-- BLOCO DE SOLICITAÇÕES PENDENTES DE APROVAÇÃO -->
+            <div id="adm-pendentes-card" class="card hidden" style="border:2px solid #f59e0b; background:#fffbeb;">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title" style="color:#b45309;">🔔 Solicitações de Conta Aguardando Aprovação</h2>
+                  <p class="card-subtitle">Novos usuários cadastrados aguardando o Gean definir os acessos e liberar o login</p>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="activity-table">
+                  <thead>
+                    <tr>
+                      <th>Nome</th>
+                      <th>Cargo / Função</th>
+                      <th>Setor</th>
+                      <th>Login</th>
+                      <th>Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="adm-pendentes-body"></tbody>
+                </table>
+              </div>
+            </div>
+
             <div class="card">
               <div class="card-header">
                 <div>
-                  <h2 class="card-title">Gestão de Usuários & Permissões por Setor (ADM)</h2>
-                  <p class="card-subtitle">Crie logins personalizados ou selecione um perfil rápido (Admin Total, Financeiro, RH/Adm, Produção)</p>
+                  <h2 class="card-title">Gestão de Usuários & Permissões por Módulo (ADM)</h2>
+                  <p class="card-subtitle">Crie logins, aprove solicitações e personalize os módulos liberados para cada usuário</p>
                 </div>
               </div>
               <form id="form-usuario-adm">
@@ -866,6 +949,10 @@
                     <input type="text" id="adm-user-login" class="form-control" required />
                   </div>
                   <div class="form-group">
+                    <label>Cargo / Função</label>
+                    <input type="text" id="adm-user-cargo" class="form-control" placeholder="Ex: Vidraceiro, Gerente, Orçamentista" />
+                  </div>
+                  <div class="form-group">
                     <label>Senha (deixe em branco p/ manter ao editar)</label>
                     <input type="password" id="adm-user-senha" class="form-control" />
                   </div>
@@ -873,28 +960,29 @@
                     <label>Setor Principal (preenche permissões sugeridas)</label>
                     <select id="adm-user-setor" class="form-control" onchange="aplicarPresetPermissoes(this.value)">
                       <option value="diretoria">Diretoria / ADM (Acesso Total)</option>
-                      <option value="financeiro">Financeiro (Caixa, Contas e Folha)</option>
+                      <option value="financeiro">Financeiro (Gestão Financeira e Folha)</option>
                       <option value="administrativo">Administrativo / RH (Equipe, SST e Acervo)</option>
                       <option value="vendas">Vendas / Comercial (A Receber)</option>
-                      <option value="producao">Produção (Pastas, SST e Produtividade)</option>
+                      <option value="producao">Produção (Equipe, SST e Desempenho)</option>
+                      <option value="geral">Geral</option>
                     </select>
                   </div>
                 </div>
 
                 <div class="form-group">
-                  <label>Módulos Liberados para este Usuário (personalize livremente):</label>
+                  <label>Módulos Liberados para este Usuário (espelhados com o menu lateral):</label>
                   <div class="perm-grid">
-                    <label class="perm-item"><input type="checkbox" id="perm-financeiro" /> Financeiro (Caixa/Contas)</label>
-                    <label class="perm-item"><input type="checkbox" id="perm-administrativo" /> Administrativo</label>
-                    <label class="perm-item"><input type="checkbox" id="perm-rh" /> RH & Certificados</label>
-                    <label class="perm-item"><input type="checkbox" id="perm-vendas" /> Vendas / A Receber</label>
-                    <label class="perm-item"><input type="checkbox" id="perm-producao" /> Produção / Produtividade</label>
-                    <label class="perm-item"><input type="checkbox" id="perm-admin" /> Administrador Total (ADM)</label>
+                    <label class="perm-item"><input type="checkbox" id="perm-financeiro" /> Gestão Financeira</label>
+                    <label class="perm-item"><input type="checkbox" id="perm-vendas" /> Gestão Financeira (Somente A Receber)</label>
+                    <label class="perm-item"><input type="checkbox" id="perm-administrativo" /> Equipe & Prontuários / Acervo Digital</label>
+                    <label class="perm-item"><input type="checkbox" id="perm-rh" /> Folha & Desempenho / SST & Certificados</label>
+                    <label class="perm-item"><input type="checkbox" id="perm-producao" /> Operação & Produtividade</label>
+                    <label class="perm-item"><input type="checkbox" id="perm-admin" /> Acessos & Configurações (ADM Total)</label>
                   </div>
                 </div>
 
                 <div style="display:flex; gap:10px;">
-                  <button type="submit" class="btn-pill btn-primary">Salvar Usuário e Acessos</button>
+                  <button type="submit" id="btn-salvar-usuario-adm" class="btn-pill btn-primary">Salvar Usuário e Acessos</button>
                   <button type="button" class="btn-pill btn-outline" onclick="resetFormUsuarioAdm()">Novo Usuário</button>
                 </div>
               </form>
@@ -903,10 +991,11 @@
                 <table class="activity-table">
                   <thead>
                     <tr>
-                      <th>Nome</th>
+                      <th>Nome / Cargo</th>
                       <th>Login</th>
                       <th>Setor</th>
                       <th>Acessos Liberados</th>
+                      <th>Status</th>
                       <th>Ação</th>
                     </tr>
                   </thead>
@@ -1867,6 +1956,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=10"></script>
+  <script src="js/app.js?v=11"></script>
 </body>
 </html>
