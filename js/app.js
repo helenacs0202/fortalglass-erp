@@ -77,8 +77,7 @@ function showApp(user) {
   document.getElementById('login-view').classList.add('hidden');
   document.getElementById('app-view').classList.remove('hidden');
 
-  document.getElementById('topbar-user-name').textContent = user.nome;
-  document.getElementById('topbar-user-role').textContent =
+  atualizarPerfilSidebar(STATE.user);
     user.perfil === 'admin' ? 'ADM' : (user.setor || 'Equipe');
 
   // Oculta menus, seções e botões que o usuário não tem permissão para ver
@@ -1883,7 +1882,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  document.getElementById('btn-open-ocr-global').addEventListener('click', () => {
+  document.getElementById('btn-open-ocr-global')?.addEventListener('click', () => {
     abrirModal('modal-ocr-global');
   });
 
@@ -2618,4 +2617,95 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   checkSession();
+});
+// === PERFIL NA SIDEBAR E ESCOLHA DE FOTO ===
+function atualizarPerfilSidebar(user) {
+  if (!user) return;
+  const nameEl = document.getElementById('sidebar-user-name');
+  const roleEl = document.getElementById('sidebar-user-role');
+  const initialsEl = document.getElementById('sidebar-user-initials');
+  const imgEl = document.getElementById('sidebar-user-avatar');
+
+  const nome = user.nome || user.name || 'Usuário';
+  const cargo = (user.perfil || user.role || user.setor || 'ADM').toUpperCase();
+
+  if (nameEl) nameEl.textContent = nome;
+  if (roleEl) roleEl.textContent = cargo;
+
+  const iniciais = nome
+    .split(' ')
+    .filter(Boolean)
+    .map(p => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+  if (initialsEl) initialsEl.textContent = iniciais;
+
+  // Carrega a foto salva no navegador ou vinda do banco
+  const storageKey = `fg_avatar_${user.login || user.id || 'default'}`;
+  const savedPhoto = user.foto_perfil || localStorage.getItem(storageKey);
+
+  if (savedPhoto && imgEl) {
+    imgEl.src = savedPhoto;
+    imgEl.style.display = 'block';
+    if (initialsEl) initialsEl.style.display = 'none';
+  } else if (imgEl && initialsEl) {
+    imgEl.style.display = 'none';
+    initialsEl.style.display = 'flex';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Garante atualização caso STATE.user já esteja carregado
+  if (typeof STATE !== 'undefined' && STATE.user) {
+    atualizarPerfilSidebar(STATE.user);
+  }
+
+  const inputFoto = document.getElementById('input-foto-perfil');
+  if (inputFoto) {
+    inputFoto.addEventListener('change', function () {
+      const file = this.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+          // Redimensiona para 180x180px (quadrado) para ficar leve
+          const canvas = document.createElement('canvas');
+          canvas.width = 180;
+          canvas.height = 180;
+          const ctx = canvas.getContext('2d');
+          const min = Math.min(img.width, img.height);
+          ctx.drawImage(
+            img,
+            (img.width - min) / 2,
+            (img.height - min) / 2,
+            min,
+            min,
+            0,
+            0,
+            180,
+            180
+          );
+
+          const fotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          const imgEl = document.getElementById('sidebar-user-avatar');
+          const initialsEl = document.getElementById('sidebar-user-initials');
+
+          if (imgEl) {
+            imgEl.src = fotoBase64;
+            imgEl.style.display = 'block';
+          }
+          if (initialsEl) initialsEl.style.display = 'none';
+
+          const userObj = (typeof STATE !== 'undefined' && STATE.user) ? STATE.user : {};
+          const key = `fg_avatar_${userObj.login || userObj.id || 'default'}`;
+          localStorage.setItem(key, fotoBase64);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 });
