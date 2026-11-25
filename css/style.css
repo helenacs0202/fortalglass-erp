@@ -152,8 +152,8 @@ body {
 }
 
 .btn-sm {
-  padding: 6px 14px;
-  font-size: 0.75rem;
+  padding: 7px 15px;
+  font-size: 0.78rem;
 }
 
 .btn-primary {
@@ -238,6 +238,7 @@ body {
   top: 0;
   height: 100vh;
   overflow-x: hidden;
+  z-index: 20;
 }
 
 /* Caixa fixa no topo; logo centralizada e em destaque */
@@ -266,48 +267,6 @@ body {
   display: block;
   margin: 0 auto;
   transform: scale(1.62);
-  transform-origin: center center;
-}
-}
-
-.sidebar-header img,
-.sidebar-brand img,
-.brand-logo {
-  width: auto;
-  max-width: 195px;
-  max-height: 64px;
-  height: auto;
-  object-fit: contain;
-  display: block;
-  margin: 0 auto;
-  transform: scale(1.24);
-  transform-origin: center center;
-}
-
-.sidebar-header img,
-.sidebar-brand img,
-.brand-logo {
-  width: auto;
-  max-width: 185px;
-  max-height: 58px;
-  height: auto;
-  object-fit: contain;
-  display: block;
-  margin: 0 auto;
-  transform: scale(1.12);
-  transform-origin: center center;
-}
-
-.sidebar-header img,
-.sidebar-brand img,
-.brand-logo {
-  width: 220px;
-  max-width: 95%;
-  height: auto;
-  object-fit: contain;
-  display: block;
-  margin: 0 auto;
-  transform: scale(1.52);
   transform-origin: center center;
 }
 
