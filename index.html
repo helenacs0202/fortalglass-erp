@@ -12,8 +12,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
-    /* Ajuste proporcional da Versão 5 para caber 100% na tela em zoom 100% (equivalente ao visual em 80%) */
+    /* =========================================================================
+       TELA DE LOGIN FORTALGLASS · VIDRO CANELADO + DOURADO VIVO + ZOOM 100% FIT
+       ========================================================================= */
     #login-view.login-wrapper {
+      position: relative;
       min-height: 100vh;
       height: 100vh;
       max-height: 100vh;
@@ -23,29 +26,85 @@
       justify-content: center;
       padding: 12px 24px;
       box-sizing: border-box;
+      background-color: #023b42;
+      /* Textura arquitetônica de vidro canelado verde-petróleo em alta definição */
+      background-image:
+        radial-gradient(ellipse 75% 45% at 50% 62%, rgba(76, 175, 168, 0.28) 0%, rgba(3, 76, 83, 0.08) 55%, rgba(1, 31, 36, 0.72) 100%),
+        linear-gradient(180deg, rgba(2, 48, 54, 0.45) 0%, rgba(18, 108, 108, 0.12) 48%, rgba(2, 34, 39, 0.65) 100%),
+        repeating-linear-gradient(
+          90deg,
+          #012c32 0px,
+          #024952 4px,
+          #167375 11px,
+          #47a39e 16px,
+          #0e5c63 21px,
+          #01292e 26px
+        );
+      background-size: 100% 100%, 100% 100%, 26px 100%;
     }
 
+    /* Reflexo especular diagonal sutil sobre o vidro canelado */
+    #login-view.login-wrapper::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(
+        118deg,
+        rgba(255, 255, 255, 0.09) 0%,
+        rgba(255, 255, 255, 0.02) 34%,
+        transparent 52%,
+        rgba(229, 168, 18, 0.05) 85%,
+        transparent 100%
+      );
+    }
+
+    /* Card central em vidro fumê translúcido com filete dourado vivo */
     #login-view .login-card {
+      position: relative;
+      z-index: 2;
       width: 100%;
-      max-width: 350px;
-      padding: 22px 28px !important;
+      max-width: 356px;
+      padding: 24px 28px 22px 28px !important;
       margin: auto;
       border-radius: 20px;
+      background: linear-gradient(
+        165deg,
+        rgba(3, 46, 51, 0.84) 0%,
+        rgba(2, 33, 37, 0.90) 100%
+      ) !important;
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      border-top: 3px solid #F2B705 !important;
+      box-shadow:
+        0 24px 55px rgba(0, 15, 18, 0.65),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
     }
 
     #login-view .login-brand {
-      margin-bottom: 12px !important;
+      margin-bottom: 14px !important;
+      text-align: center;
     }
 
     #login-view .login-brand p {
-      font-size: 0.76rem !important;
+      color: #E2E8F0 !important;
+      font-size: 0.77rem !important;
+      font-weight: 500 !important;
       line-height: 1.38 !important;
-      max-width: 245px !important;
-      margin: 0 auto 12px auto !important;
+      max-width: 255px !important;
+      margin: 0 auto 14px auto !important;
+      letter-spacing: 0.01em;
     }
 
+    /* Logo levemente ampliada mantendo proporção perfeita no zoom 100% */
     #login-view .login-brand img {
-      max-width: 235px !important;
+      width: 100%;
+      max-width: 262px !important;
+      height: auto;
+      margin: 0 auto;
+      display: block;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
     }
 
     #login-view #login-form .form-group {
@@ -53,39 +112,80 @@
     }
 
     #login-view #login-form label {
+      color: #F1F5F9 !important;
       font-size: 0.78rem !important;
+      font-weight: 600 !important;
       margin-bottom: 5px !important;
+      display: block;
     }
 
     #login-view #login-form .form-control {
-      height: 38px !important;
-      padding: 6px 12px !important;
-      font-size: 0.85rem !important;
+      height: 39px !important;
+      padding: 6px 13px !important;
+      font-size: 0.86rem !important;
       border-radius: 10px !important;
+      background: #FFFFFF !important;
+      color: #0F172A !important;
+      border: 1.5px solid rgba(255, 255, 255, 0.3) !important;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
+    #login-view #login-form .form-control:focus {
+      outline: none !important;
+      border-color: #F2B705 !important;
+      box-shadow: 0 0 0 3px rgba(242, 183, 5, 0.28) !important;
+    }
+
+    /* Botão principal no amarelo dourado vivo da identidade visual */
     #login-view #login-submit {
-      height: 40px !important;
-      font-size: 0.85rem !important;
-      margin-top: 2px;
+      height: 41px !important;
+      font-size: 0.86rem !important;
+      font-weight: 700 !important;
+      margin-top: 4px;
+      border-radius: 999px !important;
+      border: none !important;
+      color: #FFFFFF !important;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+      background: linear-gradient(135deg, #F5BE0B 0%, #E09F00 100%) !important;
+      box-shadow: 0 6px 18px rgba(242, 183, 5, 0.34) !important;
+      transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    }
+
+    #login-view #login-submit:hover {
+      filter: brightness(1.06);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px rgba(242, 183, 5, 0.45) !important;
     }
 
     #login-view .login-register-footer {
       margin-top: 15px !important;
-      padding-top: 12px !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.16);
+      padding-top: 13px !important;
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
       text-align: center;
     }
 
     #login-view .login-register-footer p {
       color: #CBD5E1;
-      font-size: 0.72rem !important;
+      font-size: 0.73rem !important;
       margin: 0 0 9px 0 !important;
     }
 
     #login-view #btn-show-register {
-      height: 37px !important;
-      font-size: 0.8rem !important;
+      height: 38px !important;
+      font-size: 0.81rem !important;
+      border-radius: 999px !important;
+      background: rgba(255, 255, 255, 0.08) !important;
+      color: #F8FAFC !important;
+      border: 1px solid rgba(255, 255, 255, 0.28) !important;
+      font-weight: 600 !important;
+      cursor: pointer;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    #login-view #btn-show-register:hover {
+      background: rgba(255, 255, 255, 0.15) !important;
+      border-color: rgba(242, 183, 5, 0.65) !important;
     }
 
     /* Quando abrir o cadastro de nova conta, libera altura para não cortar campos */
@@ -105,12 +205,12 @@
 
   <!-- TELA DE LOGIN & SOLICITAÇÃO DE CONTA -->
   <div id="login-view" class="login-wrapper">
-    <div class="login-card" style="padding-top:26px;">
-      <div class="login-brand" style="text-align:center; margin-bottom:14px;">
-        <p style="color:#E2E8F0; font-size:0.9rem; font-weight:500; line-height:1.4; max-width:300px; margin:0 auto 14px auto;">
+    <div class="login-card">
+      <div class="login-brand">
+        <p>
           Sistema Integrado de Gestão Financeira, RH e Produção
         </p>
-        <img src="assets/logo-fortalglass.png" alt="FortalGlass" style="width:100%; max-width:290px; height:auto; margin:0 auto; display:block;" />
+        <img src="assets/logo-fortalglass.png" alt="FortalGlass" />
       </div>
 
       <div id="login-error" class="login-error hidden"></div>
@@ -139,7 +239,6 @@
             id="btn-show-register"
             onclick="abrirTelaCadastro()"
             class="btn-pill btn-full"
-            style="background:rgba(255,255,255,0.12); color:#FFFFFF; border:1px solid rgba(255,255,255,0.38); font-weight:600; cursor:pointer;"
           >
             Solicitar Criação de Conta
           </button>
@@ -154,17 +253,17 @@
         </p>
 
         <div class="form-group">
-          <label for="reg-nome">Nome Completo</label>
+          <label for="reg-nome" style="color:#F1F5F9;">Nome Completo</label>
           <input type="text" id="reg-nome" class="form-control" placeholder="Ex: João Silva" required />
         </div>
 
         <div class="form-group">
-          <label for="reg-cargo">Cargo / Função</label>
+          <label for="reg-cargo" style="color:#F1F5F9;">Cargo / Função</label>
           <input type="text" id="reg-cargo" class="form-control" placeholder="Ex: Vidraceiro, Orçamentista, Auxiliar Adm" required />
         </div>
 
         <div class="form-group">
-          <label for="reg-setor">Setor de Atuação</label>
+          <label for="reg-setor" style="color:#F1F5F9;">Setor de Atuação</label>
           <select id="reg-setor" class="form-control" required>
             <option value="producao">Produção / Fábrica</option>
             <option value="instalacao">Instalação / Obras</option>
@@ -176,21 +275,21 @@
         </div>
 
         <div class="form-group">
-          <label for="reg-email">Login de Acesso (sem espaços)</label>
+          <label for="reg-email" style="color:#F1F5F9;">Login de Acesso (sem espaços)</label>
           <input type="text" id="reg-email" class="form-control" placeholder="Ex: joaosilva" autocomplete="off" required />
         </div>
 
         <div class="form-group">
-          <label for="reg-senha">Crie uma Senha</label>
+          <label for="reg-senha" style="color:#F1F5F9;">Crie uma Senha</label>
           <input type="password" id="reg-senha" class="form-control" placeholder="Defina sua senha" autocomplete="new-password" required />
         </div>
 
-        <button type="submit" id="reg-submit" class="btn-pill btn-primary btn-full">
+        <button type="submit" id="reg-submit" class="btn-pill btn-primary btn-full" style="background:linear-gradient(135deg, #F5BE0B 0%, #E09F00 100%); border:none; font-weight:700;">
           Enviar Solicitação de Conta
         </button>
 
         <div style="text-align:center; margin-top:16px;">
-          <a href="#" id="btn-back-login" onclick="voltarTelaLogin(event)" style="color:#E2E8F0; font-size:0.85rem; font-weight:600; text-decoration:underline;">
+          <a href="#" id="btn-back-login" onclick="voltarTelaLogin(event)" style="color:#F2B705; font-size:0.85rem; font-weight:600; text-decoration:underline;">
             ← Voltar para o Login
           </a>
         </div>
