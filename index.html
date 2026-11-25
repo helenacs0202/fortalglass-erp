@@ -11,216 +11,17 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <style>
-    /* Tela de login ajustada para caber 100% na altura da viewport (100vh) + efeitos sutis de vidro no fundo */
-    #login-view.login-wrapper {
-      position: relative;
-      min-height: 100vh;
-      height: 100vh;
-      max-height: 100vh;
-      overflow-y: auto;
-      overflow-x: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 12px 16px;
-      box-sizing: border-box;
-      background: radial-gradient(circle at 20% 22%, #063338 0%, #032024 58%, #021518 100%);
-    }
-
-    /* Painéis e reflexos translúcidos bem sutis no background */
-    #login-view.login-wrapper::before {
-      content: "";
-      position: fixed;
-      top: -12%;
-      left: -8%;
-      width: 50vw;
-      height: 66vh;
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.028) 0%, rgba(255, 255, 255, 0.005) 60%, transparent 100%);
-      border: 1px solid rgba(255, 255, 255, 0.035);
-      border-radius: 32px;
-      transform: rotate(-14deg);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    #login-view.login-wrapper::after {
-      content: "";
-      position: fixed;
-      bottom: -14%;
-      right: -6%;
-      width: 46vw;
-      height: 62vh;
-      background: linear-gradient(315deg, rgba(212, 160, 23, 0.03) 0%, rgba(255, 255, 255, 0.018) 45%, transparent 100%);
-      border: 1px solid rgba(255, 255, 255, 0.03);
-      border-radius: 36px;
-      transform: rotate(-14deg);
-      backdrop-filter: blur(7px);
-      -webkit-backdrop-filter: blur(7px);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* Placas flutuantes discretas de vidro temperado */
-    .glass-pane-bg {
-      position: fixed;
-      pointer-events: none;
-      z-index: 0;
-      border-radius: 24px;
-      background: linear-gradient(145deg, rgba(255, 255, 255, 0.022) 0%, rgba(255, 255, 255, 0.005) 100%);
-      border: 1px solid rgba(255, 255, 255, 0.038);
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(5px);
-      -webkit-backdrop-filter: blur(5px);
-    }
-
-    .glass-pane-1 {
-      width: 270px;
-      height: 350px;
-      top: 10%;
-      left: 8%;
-      transform: rotate(-8deg);
-    }
-
-    .glass-pane-2 {
-      width: 300px;
-      height: 370px;
-      bottom: 8%;
-      right: 7%;
-      transform: rotate(9deg);
-    }
-
-    .glass-pane-3 {
-      width: 200px;
-      height: 200px;
-      top: 14%;
-      right: 16%;
-      transform: rotate(18deg);
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.018) 0%, transparent 100%);
-    }
-
-    /* Painel principal um pouco mais comprido, borda dourada reforçada e cabe 100% na tela */
-    #login-view .login-card {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-      max-width: 470px;
-      padding: 24px 32px 24px 32px !important;
-      margin: auto;
-      background: linear-gradient(165deg, rgba(6, 74, 82, 0.92) 0%, rgba(4, 57, 63, 0.96) 100%);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 2px solid #D4A017 !important;
-      box-shadow:
-        0 0 0 1px rgba(212, 160, 23, 0.25),
-        0 24px 60px rgba(0, 0, 0, 0.48),
-        inset 0 1px 0 rgba(255, 230, 150, 0.25);
-    }
-
-    #login-view .login-brand {
-      margin-bottom: 14px !important;
-    }
-
-    #login-view .login-brand p {
-      font-size: 0.84rem !important;
-      line-height: 1.3 !important;
-      margin: 0 auto 12px auto !important;
-      max-width: none !important;
-      white-space: nowrap;
-      letter-spacing: -0.01em;
-    }
-
-    #login-view .login-brand img {
-      max-width: 235px !important;
-      max-height: 118px;
-      object-fit: contain;
-    }
-
-    #login-view #login-form .form-group {
-      margin-bottom: 13px !important;
-    }
-
-    #login-view #login-form label {
-      margin-bottom: 5px !important;
-      font-size: 0.84rem !important;
-    }
-
-    #login-view #login-form .form-control {
-      height: 41px !important;
-      padding: 7px 14px !important;
-      font-size: 0.92rem !important;
-    }
-
-    #login-view #login-submit {
-      height: 43px !important;
-      margin-top: 4px;
-    }
-
-    #login-view .login-register-footer {
-      margin-top: 16px !important;
-      padding-top: 13px !important;
-      border-top: 1px solid rgba(255, 255, 255, 0.16);
-      text-align: center;
-    }
-
-    #login-view .login-register-footer p {
-      color: #CBD5E1;
-      font-size: 0.8rem !important;
-      margin: 0 0 9px 0 !important;
-    }
-
-    #login-view #btn-show-register {
-      height: 40px !important;
-      font-size: 0.86rem !important;
-    }
-
-    /* Quando o formulário de cadastro estiver aberto, permitir altura fluida sem aperto */
-    #login-view.register-open {
-      height: auto;
-      max-height: none;
-      padding: 20px 16px;
-    }
-
-    @media (max-width: 480px) {
-      #login-view .login-brand p {
-        white-space: normal;
-        font-size: 0.8rem !important;
-      }
-      #login-view .login-card {
-        padding: 20px 20px !important;
-      }
-    }
-
-    @media (max-height: 660px) {
-      #login-view .login-brand img {
-        max-width: 190px !important;
-        max-height: 92px;
-      }
-      #login-view .login-card {
-        padding: 16px 26px !important;
-      }
-      #login-view #login-form .form-group {
-        margin-bottom: 9px !important;
-      }
-    }
-  </style>
 </head>
 <body>
 
   <!-- TELA DE LOGIN & SOLICITAÇÃO DE CONTA -->
   <div id="login-view" class="login-wrapper">
-    <div class="glass-pane-bg glass-pane-1" aria-hidden="true"></div>
-    <div class="glass-pane-bg glass-pane-2" aria-hidden="true"></div>
-    <div class="glass-pane-bg glass-pane-3" aria-hidden="true"></div>
-
-    <div class="login-card">
-      <div class="login-brand" style="text-align:center;">
-        <p style="color:#E2E8F0; font-weight:500;">
+    <div class="login-card" style="padding-top:26px;">
+      <div class="login-brand" style="text-align:center; margin-bottom:14px;">
+        <p style="color:#E2E8F0; font-size:0.9rem; font-weight:500; line-height:1.4; max-width:300px; margin:0 auto 14px auto;">
           Sistema Integrado de Gestão Financeira, RH e Produção
         </p>
-        <img src="assets/logo-fortalglass.png" alt="FortalGlass" style="width:100%; height:auto; margin:0 auto; display:block;" />
+        <img src="assets/logo-fortalglass.png" alt="FortalGlass" style="width:100%; max-width:290px; height:auto; margin:0 auto; display:block;" />
       </div>
 
       <div id="login-error" class="login-error hidden"></div>
@@ -242,8 +43,8 @@
           Entrar no Sistema
         </button>
 
-        <div class="login-register-footer">
-          <p>Ainda não possui acesso ao sistema?</p>
+        <div style="margin-top:18px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.16); text-align:center;">
+          <p style="color:#CBD5E1; font-size:0.82rem; margin:0 0 10px 0;">Ainda não possui acesso ao sistema?</p>
           <button
             type="button"
             id="btn-show-register"
@@ -2167,12 +1968,10 @@
   <!-- SCRIPT DIRETO DE ALTERNÂNCIA LOGIN <-> CADASTRO -->
   <script>
     function abrirTelaCadastro() {
-      var view = document.getElementById('login-view');
       var err = document.getElementById('login-error');
       var suc = document.getElementById('login-success');
       var fLogin = document.getElementById('login-form');
       var fReg = document.getElementById('register-form');
-      if (view) view.classList.add('register-open');
       if (err) err.classList.add('hidden');
       if (suc) suc.classList.add('hidden');
       if (fLogin) fLogin.classList.add('hidden');
@@ -2181,11 +1980,9 @@
 
     function voltarTelaLogin(e) {
       if (e) e.preventDefault();
-      var view = document.getElementById('login-view');
       var err = document.getElementById('login-error');
       var fLogin = document.getElementById('login-form');
       var fReg = document.getElementById('register-form');
-      if (view) view.classList.remove('register-open');
       if (err) err.classList.add('hidden');
       if (fReg) fReg.classList.add('hidden');
       if (fLogin) fLogin.classList.remove('hidden');
