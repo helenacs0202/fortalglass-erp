@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=11" />
+  <link rel="stylesheet" href="css/style.css?v=12" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -17,9 +17,9 @@
   <!-- TELA DE LOGIN & SOLICITAÇÃO DE CONTA -->
   <div id="login-view" class="login-wrapper">
     <div class="login-card">
-      <div class="login-brand">
-        <img src="assets/logo-fortalglass.png" alt="FortalGlass" />
-        <p>Sistema Integrado de Gestão Financeira, RH e Produção</p>
+      <div class="login-brand" style="text-align:center; margin-bottom:22px;">
+        <img src="assets/logo-fortalglass.png" alt="FortalGlass" style="width:100%; max-width:290px; height:auto; margin:0 auto 14px auto; display:block;" />
+        <p style="color:#E2E8F0; font-size:0.95rem; line-height:1.45; max-width:300px; margin:0 auto;">Sistema Integrado de Gestão Financeira, RH e Produção</p>
       </div>
 
       <div id="login-error" class="login-error hidden"></div>
@@ -41,17 +41,18 @@
           Entrar no Sistema
         </button>
 
-        <div style="text-align:center; margin-top:16px;">
-          <a href="#" id="btn-show-register" style="color:var(--primary); font-size:0.84rem; font-weight:600; text-decoration:none;">
-            Não tem conta? Solicitar acesso ao sistema
-          </a>
+        <div style="margin-top:18px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.16); text-align:center;">
+          <p style="color:#CBD5E1; font-size:0.82rem; margin:0 0 10px 0;">Ainda não possui acesso ao sistema?</p>
+          <button type="button" id="btn-show-register" class="btn-pill btn-full" style="background:rgba(255,255,255,0.12); color:#FFFFFF; border:1px solid rgba(255,255,255,0.38); font-weight:600; cursor:pointer;">
+            Solicitar Criação de Conta
+          </button>
         </div>
       </form>
 
       <!-- FORMULÁRIO DE CRIAÇÃO DE CONTA (AGUARDA APROVAÇÃO DO ADM) -->
       <form id="register-form" class="hidden">
-        <h3 style="color:var(--primary); font-size:1rem; margin-bottom:4px;">Solicitar Criação de Conta</h3>
-        <p style="font-size:0.78rem; color:var(--text-muted); margin-bottom:14px;">
+        <h3 style="color:#F8FAFC; font-size:1.05rem; margin-bottom:4px;">Solicitar Criação de Conta</h3>
+        <p style="font-size:0.82rem; color:#CBD5E1; margin-bottom:14px; line-height:1.4;">
           Preencha seus dados. Após o envio, o administrador (Gean) aprovará e definirá seus módulos de acesso.
         </p>
 
@@ -91,8 +92,8 @@
           Enviar Solicitação de Conta
         </button>
 
-        <div style="text-align:center; margin-top:14px;">
-          <a href="#" id="btn-back-login" style="color:var(--text-muted); font-size:0.82rem; text-decoration:none;">
+        <div style="text-align:center; margin-top:16px;">
+          <a href="#" id="btn-back-login" style="color:#E2E8F0; font-size:0.85rem; font-weight:600; text-decoration:underline;">
             ← Voltar para o Login
           </a>
         </div>
@@ -410,7 +411,7 @@
           </div>
         </section>
 
-        <!-- 3. EQUIPE & PRONTUÁRIOS (ABAS: PASTAS INDIVIDUAIS, CADASTRO DE COLABORADORES, DOCUMENTOS & NRs) -->
+        <!-- 3. EQUIPE & PRONTUÁRIOS (ABAS: PASTAS INDIVIDIVIDUAIS, CADASTRO DE COLABORADORES, DOCUMENTOS & NRs) -->
         <section id="section-equipe_hub" class="hidden">
           <div class="tabs-bar">
             <button class="tab-btn active" data-eqtab="pastas">Pastas dos Funcionários</button>
@@ -1956,6 +1957,6 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=11"></script>
+  <script src="js/app.js?v=12"></script>
 </body>
 </html>
